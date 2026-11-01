@@ -36,7 +36,10 @@ if [ "$MODE" = "npm" ]; then
   if [ -z "$NET" ]; then
     NPM_ID=$(docker ps --format '{{.ID}} {{.Image}}' | grep -i 'nginx-proxy-manager' | head -n1 | cut -d' ' -f1)
     [ -n "$NPM_ID" ] || { echo "실행 중인 Nginx Proxy Manager 컨테이너를 찾지 못했습니다. ./deploy.sh npm <도커 네트워크 이름> 처럼 넣어 주세요."; exit 1; }
-    NET=$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' "$NPM_ID" | awk '{print $1}')
+    # NPM 컨테이너의 기본 네트워크 (compose로 띄웠으면 *_default, 아니면 첫 번째)
+    NETS=$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' "$NPM_ID")
+    NET=$(echo "$NETS" | tr ' ' '\n' | grep '_default$' | head -n1)
+    [ -n "$NET" ] || NET=$(echo "$NETS" | awk '{print $1}')
   fi
   docker network inspect "$NET" >/dev/null 2>&1 || { echo "도커 네트워크 '$NET'이 없습니다."; exit 1; }
   setenv NPM_NETWORK "$NET"
@@ -49,15 +52,15 @@ if [ "$MODE" = "npm" ]; then
     i=$((i+1)); [ $i -gt 20 ] && { echo; echo "응답이 없습니다. ./deploy.sh logs 로 확인하세요."; exit 1; }
     printf '.'; sleep 2
   done
-  IP=$(curl -fsS --max-time 5 https://api.ipify.org || true)
   echo
-  echo "좌석 서버가 NPM 네트워크($NET)에 붙었습니다. NPM 관리 화면에서 Proxy Host를 하나 추가하세요."
-  echo "  Domain Names:   ${IP:+$(echo "$IP" | tr . -).sslip.io 또는 }쓰고 있는 도메인"
-  echo "  Scheme:         http"
-  echo "  Forward Host:   study-room-kiosk"
-  echo "  Forward Port:   8080"
-  echo "  SSL 탭:         Request a new SSL Certificate, Force SSL 켜기"
-  echo "그다음 https://그 도메인/ 이 키오스크, /admin.html 이 감독 화면입니다."
+  echo "좌석 서버가 NPM 네트워크($NET)에 붙었습니다."
+  set -a; . ./.env; set +a
+  if [ -n "$NPM_EMAIL" ] && [ -n "$NPM_PASSWORD" ]; then
+    ./scripts/npm-proxy-host.sh
+  else
+    echo "Proxy Host를 자동으로 만들려면 .env에 NPM_EMAIL, NPM_PASSWORD(NPM 관리자 계정)를 넣고 다시 실행하세요."
+    echo "도메인은 KIOSK_DOMAIN으로 정할 수 있고, 비워 두면 <공인IP>.sslip.io를 씁니다."
+  fi
   exit 0
 fi
 setenv COMPOSE_FILE "docker-compose.yml"

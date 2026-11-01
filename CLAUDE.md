@@ -8,7 +8,7 @@
 - 학생 확인은 학생증 바코드(태블릿 카메라) 또는 학번. 시연은 가짜 학번과 `cards.html`로 인쇄한 시연용 카드로 한다.
 - 실행 기기는 태블릿 브라우저(크롬). 모니터 대신 태블릿으로 시연한다.
 - 감독 화면은 키오스크 오른쪽 위 [감독] 버튼으로 들어가고, PIN은 숫자 키패드로 누른다.
-- 배포는 Docker(좌석 서버 + Caddy HTTPS). 먼저 OCI에서 테스트하는데, OCI에는 Nginx Proxy Manager가 깔려 있어서 `./deploy.sh npm`(Caddy 없이 좌석 서버만 NPM 네트워크에 붙임)을 쓴다. 괜찮으면 아두이노 UNO Q(arm64, Debian)에서 `./deploy.sh lan`으로 띄워 갤럭시탭으로 접속해 시연한다.
+- 배포는 Docker(좌석 서버 + Caddy HTTPS). 먼저 OCI에서 테스트하는데, OCI에는 Nginx Proxy Manager가 깔려 있어서 `./deploy.sh npm`을 쓴다. Caddy 없이 좌석 서버만 NPM 컨테이너의 기본 도커 네트워크에 붙이고, Proxy Host는 `scripts/npm-proxy-host.sh`가 NPM API로 만든다(지훈은 NPM 관리 화면을 직접 만지고 싶어 하지 않음). 괜찮으면 아두이노 UNO Q(arm64, Debian)에서 `./deploy.sh lan`으로 띄워 갤럭시탭으로 접속해 시연한다.
 - 좌석 배치는 실제 자습실 좌석표 기준 107석, 11줄, 기둥 2개, 출입문 오른쪽 아래.
 - 배정되면 학생에게 자리 알림(카카오톡 등). 지금은 QR 내 자리 확인, 서버 모드의 /api/events와 웹훅까지 구현.
 

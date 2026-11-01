@@ -38,7 +38,7 @@ cd self-study-room-kiosk
 ./deploy.sh stop         # 내리기
 ```
 
-- Nginx Proxy Manager(NPM)가 이미 80, 443을 쓰는 서버에서는 `npm` 모드를 씁니다. Caddy는 띄우지 않고, 좌석 서버 컨테이너(`study-room-kiosk`)를 NPM과 같은 도커 네트워크에 붙입니다. NPM에서 Proxy Host를 추가해 `http://study-room-kiosk:8080`으로 보내고 SSL 인증서를 발급받으면 됩니다. 스크립트가 끝날 때 넣을 값을 알려 줍니다.
+- Nginx Proxy Manager(NPM)가 이미 80, 443을 쓰는 서버에서는 `npm` 모드를 씁니다. Caddy는 띄우지 않고, 좌석 서버 컨테이너(`study-room-kiosk`)를 NPM과 같은 도커 네트워크에 붙입니다. `.env`에 NPM 관리자 계정(`NPM_EMAIL`, `NPM_PASSWORD`, 특수문자가 있으면 작은따옴표로 감싸기)을 넣어 두면 `scripts/npm-proxy-host.sh`가 NPM API로 Proxy Host(`http://study-room-kiosk:8080`, Let's Encrypt 인증서, HTTPS 강제)를 만들어 줘서 관리 화면을 열 필요가 없습니다. 도메인은 `KIOSK_DOMAIN`, 비워 두면 `<공인IP>.sslip.io`입니다.
 - OCI에서는 콘솔의 보안 목록(Security List)에 TCP 80, 443 수신 규칙을 추가해야 합니다. Ubuntu 이미지는 서버 안 iptables도 막혀 있어서 `./deploy.sh oci --open-firewall`로 같이 열 수 있습니다.
 - 인증서 발급에 80번이나 443번 포트가 밖에서 열려 있어야 합니다. 이미 다른 프로그램이 쓰고 있으면 먼저 정리하세요.
 - UNO Q(lan)에서는 태블릿이 처음 접속할 때 인증서 경고가 나옵니다. "고급 > 계속"을 누르면 카메라까지 동작합니다.
