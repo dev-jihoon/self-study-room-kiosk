@@ -33,10 +33,12 @@ git clone https://github.com/dev-jihoon/self-study-room-kiosk.git
 cd self-study-room-kiosk
 ./deploy.sh oci          # OCI: 공인 IP로 https://<IP>.sslip.io 주소와 정식 인증서를 자동으로 만듦
 ./deploy.sh lan          # UNO Q: 학교 와이파이 IP로 https://<IP> (자체 인증서)
+./deploy.sh npm          # Nginx Proxy Manager가 있는 서버: 좌석 서버만 띄워 NPM 네트워크에 붙임
 ./deploy.sh logs         # 로그
 ./deploy.sh stop         # 내리기
 ```
 
+- Nginx Proxy Manager(NPM)가 이미 80, 443을 쓰는 서버에서는 `npm` 모드를 씁니다. Caddy는 띄우지 않고, 좌석 서버 컨테이너(`study-room-kiosk`)를 NPM과 같은 도커 네트워크에 붙입니다. NPM에서 Proxy Host를 추가해 `http://study-room-kiosk:8080`으로 보내고 SSL 인증서를 발급받으면 됩니다. 스크립트가 끝날 때 넣을 값을 알려 줍니다.
 - OCI에서는 콘솔의 보안 목록(Security List)에 TCP 80, 443 수신 규칙을 추가해야 합니다. Ubuntu 이미지는 서버 안 iptables도 막혀 있어서 `./deploy.sh oci --open-firewall`로 같이 열 수 있습니다.
 - 인증서 발급에 80번이나 443번 포트가 밖에서 열려 있어야 합니다. 이미 다른 프로그램이 쓰고 있으면 먼저 정리하세요.
 - UNO Q(lan)에서는 태블릿이 처음 접속할 때 인증서 경고가 나옵니다. "고급 > 계속"을 누르면 카메라까지 동작합니다.
@@ -66,6 +68,7 @@ public/
   js/code128.js    시연용 카드 바코드 (Code 128)
 server/server.js   서버 모드
 Caddyfile          HTTPS 앞단 (deploy.sh가 주소를 채움)
+docker-compose.npm.yml  NPM 서버용 (Caddy 없이 NPM 네트워크에 붙임)
 deploy.sh          OCI, UNO Q 배포 스크립트
 ```
 

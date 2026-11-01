@@ -1,5 +1,6 @@
 # 좌석 배정 서버 + HTTPS(Caddy). OCI와 UNO Q에서 똑같이 쓴다.
-# 직접 실행하지 말고 ./deploy.sh oci 또는 ./deploy.sh lan 으로 띄운다 (.env를 만들어 줌).
+# 직접 실행하지 말고 ./deploy.sh 로 띄운다 (.env를 만들어 줌).
+# Nginx Proxy Manager가 있는 서버에서는 ./deploy.sh npm 으로 app만 띄우고 Caddy는 쓰지 않는다.
 services:
   app:
     build: .
@@ -22,7 +23,7 @@ services:
       - "${HTTP_PORT:-80}:80"
       - "${HTTPS_PORT:-443}:443"
     environment:
-      SITE_ADDRESS: ${SITE_ADDRESS:?deploy.sh로 실행하세요}
+      SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
       CADDY_TLS: ${CADDY_TLS:-}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro

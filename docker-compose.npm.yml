@@ -1,0 +1,11 @@
+# Nginx Proxy Manager(NPM)가 이미 80, 443을 쓰는 서버용.
+# 좌석 서버(app)만 띄워서 NPM과 같은 도커 네트워크에 붙인다. HTTPS는 NPM의 Proxy Host가 맡는다.
+services:
+  app:
+    container_name: study-room-kiosk
+    networks: [default, npm]
+
+networks:
+  npm:
+    external: true
+    name: ${NPM_NETWORK:?deploy.sh npm 으로 실행하세요}

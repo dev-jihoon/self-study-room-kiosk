@@ -4,6 +4,7 @@
 #   ./deploy.sh oci                  공인 IP로 접속하는 서버 (OCI). sslip.io 주소로 정식 인증서를 자동 발급
 #   ./deploy.sh oci --open-firewall  위와 같고, 서버 안 방화벽(iptables)의 80, 443 포트도 연다
 #   ./deploy.sh lan [IP]             학교 와이파이 안의 서버 (UNO Q). 자체 인증서, 처음 접속 때 경고를 넘겨야 함
+#   ./deploy.sh npm [네트워크]       Nginx Proxy Manager가 있는 서버. 좌석 서버만 띄우고 HTTPS는 NPM이 맡음
 #   ./deploy.sh stop                 내리기
 #   ./deploy.sh logs                 로그 보기
 set -e
@@ -17,8 +18,8 @@ MODE="${1:-}"
 case "$MODE" in
   stop) $DC down; exit 0 ;;
   logs) $DC logs -f --tail 100; exit 0 ;;
-  oci|lan) ;;
-  *) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+  oci|lan|npm) ;;
+  *) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac
 
 # .env 준비 (있으면 SITE_ADDRESS, CADDY_TLS만 바꿈)
@@ -29,6 +30,37 @@ setenv() {
   fi
   printf '%s=%s\n' "$1" "$2" >> .env
 }
+
+if [ "$MODE" = "npm" ]; then
+  NET="${2:-}"
+  if [ -z "$NET" ]; then
+    NPM_ID=$(docker ps --format '{{.ID}} {{.Image}}' | grep -i 'nginx-proxy-manager' | head -n1 | cut -d' ' -f1)
+    [ -n "$NPM_ID" ] || { echo "실행 중인 Nginx Proxy Manager 컨테이너를 찾지 못했습니다. ./deploy.sh npm <도커 네트워크 이름> 처럼 넣어 주세요."; exit 1; }
+    NET=$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' "$NPM_ID" | awk '{print $1}')
+  fi
+  docker network inspect "$NET" >/dev/null 2>&1 || { echo "도커 네트워크 '$NET'이 없습니다."; exit 1; }
+  setenv NPM_NETWORK "$NET"
+  setenv COMPOSE_FILE "docker-compose.yml:docker-compose.npm.yml"
+  mkdir -p data
+  $DC up -d --build app
+  printf '서버가 뜨기를 기다리는 중'
+  i=0
+  until docker exec study-room-kiosk wget -qO- http://127.0.0.1:8080/api/health >/dev/null 2>&1; do
+    i=$((i+1)); [ $i -gt 20 ] && { echo; echo "응답이 없습니다. ./deploy.sh logs 로 확인하세요."; exit 1; }
+    printf '.'; sleep 2
+  done
+  IP=$(curl -fsS --max-time 5 https://api.ipify.org || true)
+  echo
+  echo "좌석 서버가 NPM 네트워크($NET)에 붙었습니다. NPM 관리 화면에서 Proxy Host를 하나 추가하세요."
+  echo "  Domain Names:   ${IP:+$(echo "$IP" | tr . -).sslip.io 또는 }쓰고 있는 도메인"
+  echo "  Scheme:         http"
+  echo "  Forward Host:   study-room-kiosk"
+  echo "  Forward Port:   8080"
+  echo "  SSL 탭:         Request a new SSL Certificate, Force SSL 켜기"
+  echo "그다음 https://그 도메인/ 이 키오스크, /admin.html 이 감독 화면입니다."
+  exit 0
+fi
+setenv COMPOSE_FILE "docker-compose.yml"
 
 if [ "$MODE" = "oci" ]; then
   IP=$(curl -fsS --max-time 5 https://api.ipify.org || curl -fsS --max-time 5 https://ifconfig.me || true)
