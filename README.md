@@ -29,8 +29,8 @@
 여러 태블릿과 감독 기기가 같은 좌석 현황을 봅니다. 좌석 서버(Node 내장 모듈만 사용)와 HTTPS를 붙여 주는 Caddy가 한 묶음으로 뜹니다. 갤럭시탭 크롬은 HTTPS에서만 카메라를 켜 주기 때문에 HTTPS가 필수입니다.
 
 ```sh
-git clone https://github.com/dev-jihoon/study-room-kiosk.git
-cd study-room-kiosk
+git clone https://github.com/dev-jihoon/self-study-room-kiosk.git
+cd self-study-room-kiosk
 ./deploy.sh oci          # OCI: 공인 IP로 https://<IP>.sslip.io 주소와 정식 인증서를 자동으로 만듦
 ./deploy.sh lan          # UNO Q: 학교 와이파이 IP로 https://<IP> (자체 인증서)
 ./deploy.sh logs         # 로그
