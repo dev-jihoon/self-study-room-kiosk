@@ -1,0 +1,7 @@
+# SITE_ADDRESS 예: 158-180-1-23.sslip.io (OCI, 인증서 자동 발급) 또는 https://192.168.0.23 (학교 와이파이 안)
+# CADDY_TLS 예: 비워 두면 Let's Encrypt, "tls internal"이면 자체 인증서
+{$SITE_ADDRESS} {
+	{$CADDY_TLS}
+	encode gzip
+	reverse_proxy app:8080
+}
