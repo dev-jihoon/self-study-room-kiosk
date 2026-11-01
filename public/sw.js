@@ -1,5 +1,5 @@
 /* 한 번 열어 두면 와이파이가 끊겨도 키오스크가 뜨도록 정적 파일을 저장한다 */
-const CACHE = 'study-room-kiosk-v4';
+const CACHE = 'study-room-kiosk-v5';
 const FILES = [
   './', 'index.html', 'admin.html', 'me.html', 'cards.html', 'manifest.webmanifest',
   'css/style.css', 'css/admin.css',

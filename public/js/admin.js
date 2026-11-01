@@ -14,7 +14,8 @@
   let assigning = null;    // 자리를 정해 주는 중인 학생
   let logFilter = 'all';
 
-  $('gate-hint').textContent = store.mode === 'server' ? '' : '처음 PIN은 0000이에요';
+  const gateHint = store.mode === 'server' ? '' : '처음 PIN은 0000이에요';
+  $('gate-hint').textContent = gateHint;
 
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const hm = (iso) => Core.hhmm(new Date(iso));
@@ -60,15 +61,47 @@
       return (await r.json()).ok === true;
     } catch (e) { return false; }
   }
-  async function enter() {
-    const p = $('pin').value.trim();
-    if (!(await checkPin(p))) { toast('PIN이 맞지 않아요'); $('pin').value = ''; return; }
-    pin = p;
-    try { sessionStorage.setItem(PIN_KEY, pin); } catch (e) {}
-    openMain();
+  /* PIN 키패드: 4자리부터 누를 때마다 맞는지 확인하고, 8자리까지 틀리면 지운다 */
+  let pinBuf = '';
+  const pinLength = () => { const st = store.state.settings; return st.pin ? st.pin.length : (st.pinLength || 8); };
+  let checking = false;
+  function drawDots(wrong) {
+    const n = Math.max(pinLength() <= 8 ? pinLength() : 4, pinBuf.length);
+    $('dots').innerHTML = Array.from({ length: n }, (_, i) => '<i class="' + (i < pinBuf.length ? 'is-on' : '') + '"></i>').join('');
+    $('dots').classList.toggle('is-wrong', !!wrong);
   }
-  $('pin-ok').addEventListener('click', enter);
-  $('pin').addEventListener('keydown', (e) => { if (e.key === 'Enter') enter(); });
+  async function pressPin(k) {
+    if (checking) return;
+    if (k === 'del') { pinBuf = pinBuf.slice(0, -1); drawDots(); return; }
+    if (pinBuf.length >= 8) return;
+    pinBuf += k;
+    drawDots();
+    if (pinBuf.length < 4) return;
+    checking = true;
+    const ok = await checkPin(pinBuf);
+    checking = false;
+    if (ok) {
+      pin = pinBuf;
+      try { sessionStorage.setItem(PIN_KEY, pin); } catch (e) {}
+      pinBuf = '';
+      openMain();
+    } else if (pinBuf.length >= pinLength()) {
+      drawDots(true);
+      $('gate-hint').textContent = 'PIN이 맞지 않아요';
+      setTimeout(() => { pinBuf = ''; drawDots(); $('gate-hint').textContent = gateHint; }, 900);
+    }
+  }
+  $('pinpad').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    pressPin(b.dataset.k === 'del' ? 'del' : b.textContent);
+  });
+  document.addEventListener('keydown', (e) => {
+    if ($('gate').hidden) return;
+    if (/^\d$/.test(e.key)) pressPin(e.key);
+    else if (e.key === 'Backspace') pressPin('del');
+  });
+  drawDots();
 
   function openMain() {
     $('gate').hidden = true;

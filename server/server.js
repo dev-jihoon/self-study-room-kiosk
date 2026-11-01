@@ -19,13 +19,22 @@ fs.mkdirSync(DATA_DIR, { recursive: true });
 function loadState() {
   try {
     const s = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
-    if (s && s.version === 1) { s.settings = Object.assign(Core.defaultSettings(), s.settings); return s; }
+    if (s && s.version === 1) {
+      s.settings = Object.assign(Core.defaultSettings(), s.settings);
+      /* data/roster.csv가 없으면 기본 명단 파일을 따라간다 (명단 파일이 바뀌면 새 이름으로) */
+      if (!fs.existsSync(path.join(DATA_DIR, 'roster.csv'))) {
+        Core.syncDefaultRoster(s, JSON.parse(fs.readFileSync(path.join(PUBLIC, 'data', 'roster.json'), 'utf8')));
+      }
+      return s;
+    }
   } catch (e) {}
   let roster;
   const csv = path.join(DATA_DIR, 'roster.csv');
-  if (fs.existsSync(csv)) roster = Core.parseRosterCsv(fs.readFileSync(csv, 'utf8'));
+  const fromCsv = fs.existsSync(csv);
+  if (fromCsv) roster = Core.parseRosterCsv(fs.readFileSync(csv, 'utf8'));
   else roster = JSON.parse(fs.readFileSync(path.join(PUBLIC, 'data', 'roster.json'), 'utf8'));
   const s = Core.emptyState(roster);
+  if (fromCsv) s.rosterTag = 'custom';
   if (process.env.ADMIN_PIN) s.settings.pin = process.env.ADMIN_PIN;
   if (process.env.DEMO_MODE === '0') s.settings.demoMode = false;
   return s;
@@ -43,6 +52,7 @@ save();
 function publicState() {
   Core.rollDay(state);
   const s = JSON.parse(JSON.stringify(state));
+  s.settings.pinLength = String(s.settings.pin || '').length;
   delete s.settings.pin;
   return s;
 }

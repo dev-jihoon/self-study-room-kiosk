@@ -16,6 +16,7 @@
     try { state = JSON.parse(localStorage.getItem(KEY)); } catch (e) { state = null; }
     if (!state || state.version !== 1) state = Core.emptyState(defaultRoster);
     state.settings = Object.assign(Core.defaultSettings(), state.settings);
+    Core.syncDefaultRoster(state, defaultRoster);
     const subs = new Set();
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
     if (Core.rollDay(state)) save();

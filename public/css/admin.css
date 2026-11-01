@@ -4,11 +4,17 @@ body.admin { background: var(--gray100); user-select: text; overflow: auto; heig
 .topbar__date { font-size: 15px; color: var(--gray500); }
 .muted { color: var(--gray500); font-weight: 500; }
 
-.gate { max-width: 360px; margin: 14vh auto 0; display: flex; flex-direction: column; gap: 14px; text-align: center; padding: 0 16px; }
-.gate h2 { margin: 0 0 8px; font-size: 26px; }
-.gate input { height: 64px; border-radius: 16px; border: 0; background: var(--white); font-size: 30px; text-align: center; letter-spacing: 10px; }
-.gate input:focus { outline: 2px solid var(--blue); }
-.gate__hint { color: var(--gray500); font-size: 15px; margin: 0; }
+.gate { max-width: 360px; margin: 6vh auto 0; display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center; padding: 0 16px; }
+.gate h2 { margin: 0; font-size: 26px; }
+.dots { display: flex; gap: 14px; height: 18px; align-items: center; }
+.dots i { width: 16px; height: 16px; border-radius: 50%; background: var(--gray300); }
+.dots i.is-on { background: var(--gray900); }
+.dots.is-wrong { animation: shake .3s; }
+.dots.is-wrong i.is-on { background: var(--red); }
+@keyframes shake { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+.gate__hint { color: var(--gray500); font-size: 15px; margin: 0; min-height: 22px; }
+.gate__pad { width: 100%; grid-auto-rows: 64px; background: var(--white); border-radius: 24px; padding: 12px; }
+@media (prefers-reduced-motion: reduce) { .dots.is-wrong { animation: none; } }
 
 .wrap { max-width: 1240px; margin: 0 auto; padding: 4px 32px 48px; display: flex; flex-direction: column; gap: 16px; }
 .card { background: var(--white); border-radius: 24px; padding: 24px; }

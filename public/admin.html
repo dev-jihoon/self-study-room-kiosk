@@ -18,10 +18,15 @@
 </header>
 
 <section class="gate" id="gate">
-  <h2>감독 PIN을 입력해 주세요</h2>
-  <input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="8" aria-label="감독 PIN">
-  <button class="btn btn--primary" id="pin-ok" type="button">확인</button>
+  <h2>감독 PIN을 눌러 주세요</h2>
+  <div class="dots" id="dots" aria-live="polite"></div>
   <p class="gate__hint" id="gate-hint"></p>
+  <div class="numpad gate__pad" id="pinpad">
+    <button type="button">1</button><button type="button">2</button><button type="button">3</button>
+    <button type="button">4</button><button type="button">5</button><button type="button">6</button>
+    <button type="button">7</button><button type="button">8</button><button type="button">9</button>
+    <span></span><button type="button">0</button><button type="button" data-k="del" class="key-del">지우기</button>
+  </div>
 </section>
 
 <main class="wrap" id="main" hidden>

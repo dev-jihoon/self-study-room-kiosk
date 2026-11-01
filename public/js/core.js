@@ -27,10 +27,35 @@
     };
   }
 
+  /* 기본 명단 파일이 바뀌었는지 알아보는 짧은 표식 */
+  function rosterTag(roster) {
+    const str = JSON.stringify(roster || []);
+    let h = 0;
+    for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+    return 'default:' + (h >>> 0).toString(36);
+  }
+
+  /* 기본 명단을 쓰는 중인데 명단 파일이 바뀌었으면 새 명단으로 맞춘다. 바꿨으면 true */
+  function syncDefaultRoster(state, roster) {
+    if (state.rosterTag === 'custom') return false;
+    const tag = rosterTag(roster);
+    if (state.rosterTag === tag) return false;
+    state.roster = roster.map((s) => ({ id: String(s.id), name: String(s.name), night: s.night !== false }));
+    state.rosterTag = tag;
+    const byId = new Map(state.roster.map((s) => [s.id, s]));
+    for (const k in state.seats) {
+      const st = byId.get(state.seats[k].id);
+      if (st) state.seats[k].name = st.name; else delete state.seats[k];
+    }
+    state.log.forEach((l) => { const st = byId.get(l.id); if (st) l.name = st.name; });
+    return true;
+  }
+
   function emptyState(roster) {
     return {
       version: 1,
       day: todayKey(),
+      rosterTag: rosterTag(roster),
       roster: roster || [],
       seats: {},
       log: [],
@@ -156,6 +181,7 @@
       case 'roster': {
         if (!Array.isArray(action.roster)) return { ok: false, error: '명단 형식이 맞지 않아요' };
         state.roster = action.roster.map((s) => ({ id: String(s.id), name: String(s.name), night: s.night !== false }));
+        state.rosterTag = 'custom';
         const ids = new Set(state.roster.map((s) => s.id));
         for (const k in state.seats) if (!ids.has(state.seats[k].id)) delete state.seats[k];
         return { ok: true };
@@ -176,5 +202,5 @@
     return out;
   }
 
-  return { todayKey, hhmm, defaultSettings, emptyState, allSeatNumbers, findStudent, seatOf, isNightTime, kioskOpen, rollDay, apply, parseRosterCsv, message };
+  return { todayKey, hhmm, defaultSettings, emptyState, rosterTag, syncDefaultRoster, allSeatNumbers, findStudent, seatOf, isNightTime, kioskOpen, rollDay, apply, parseRosterCsv, message };
 });

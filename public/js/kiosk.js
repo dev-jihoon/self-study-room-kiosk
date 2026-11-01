@@ -59,14 +59,6 @@
   renderIdle();
   store.subscribe(() => { if (screen === 'pick') renderPick(); });
 
-  /* 왼쪽 위 글자를 2초 누르면 감독 화면 */
-  (function () {
-    let h;
-    const t = $('title');
-    t.addEventListener('pointerdown', () => { h = setTimeout(() => { location.href = 'admin.html'; }, 2000); });
-    ['pointerup', 'pointerleave', 'pointercancel'].forEach((e) => t.addEventListener(e, () => clearTimeout(h)));
-  })();
-
   /* 학번 입력 */
   function setInput(v) {
     inputBuf = v;

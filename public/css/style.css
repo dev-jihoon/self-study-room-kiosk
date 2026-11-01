@@ -41,6 +41,7 @@ h1, h2, h3 { letter-spacing: -0.02em; }
 .topbar__title { font-size: 17px; font-weight: 600; color: var(--gray600); }
 .topbar__right { display: flex; gap: 14px; align-items: center; }
 .topbar__clock { font-size: 17px; font-weight: 600; color: var(--gray600); font-variant-numeric: tabular-nums; }
+.topbar a.btn { text-decoration: none; }
 
 /* 화면 */
 .screen { display: none; height: calc(100% - 60px); }
