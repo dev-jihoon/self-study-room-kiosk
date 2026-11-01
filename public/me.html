@@ -27,12 +27,12 @@
 </head>
 <body>
 <main class="me">
-  <p class="me__label">오늘 야간자율학습 좌석</p>
+  <p class="me__label">오늘 야자 좌석</p>
   <div class="me__name" id="name"></div>
   <div class="me__seat"><span id="seat"></span><small>번</small></div>
   <p class="me__time" id="time"></p>
   <div class="me__map" id="map"></div>
-  <p class="me__save">이 화면을 캡처해 두면 자리를 잊어도 바로 확인할 수 있습니다.</p>
+  <p class="me__save">캡처해 두면 자리 확인용으로 쓸 수 있음</p>
 </main>
 <script src="js/seatmap.js"></script>
 <script>
@@ -42,8 +42,8 @@
   const name = q.get('n') || '';
   const day = q.get('d') || '';
   const t = q.get('t') || '';
-  if (!seat) { document.querySelector('.me').innerHTML = '<p class="me__err">좌석 정보가 없습니다. 키오스크의 QR 코드를 다시 찍어 주세요.</p>'; return; }
-  document.getElementById('name').textContent = name ? name + ' 학생' : '';
+  if (!seat) { document.querySelector('.me').innerHTML = '<p class="me__err">좌석 정보 없음. 키오스크의 QR을 다시 찍기</p>'; return; }
+  document.getElementById('name').textContent = name;
   document.getElementById('seat').textContent = seat;
   document.getElementById('time').textContent = [day, t && (t + ' 배정')].filter(Boolean).join(' ');
   document.title = seat + '번 자리';

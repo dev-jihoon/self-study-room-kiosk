@@ -11,7 +11,7 @@ const PUBLIC = path.join(__dirname, '..', 'public');
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 const STATE_FILE = path.join(DATA_DIR, 'state.json');
 const EVENTS_TOKEN = process.env.EVENTS_TOKEN || '';
-const ADMIN_TYPES = new Set(['reset', 'settings', 'roster']);
+const ADMIN_TYPES = new Set(['reset', 'settings', 'roster', 'demo-fill']);
 
 const layout = JSON.parse(fs.readFileSync(path.join(PUBLIC, 'data', 'layout.json'), 'utf8'));
 fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -108,7 +108,7 @@ async function handler(req, res) {
     if (p === '/api/action' && req.method === 'POST') {
       const action = await readBody(req);
       if ((ADMIN_TYPES.has(action.type) || action.byTeacher) && String(action.pin || '') !== state.settings.pin) {
-        return send(res, 200, { result: { ok: false, error: 'PIN이 맞지 않습니다.' }, state: publicState() });
+        return send(res, 200, { result: { ok: false, error: 'PIN 불일치' }, state: publicState() });
       }
       const before = state.events.length;
       const result = Core.apply(state, layout, action);

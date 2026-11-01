@@ -6,8 +6,8 @@
 
 | 주소 | 용도 |
 | --- | --- |
-| `index.html` | 키오스크. 바코드를 카메라에 비추거나 학번을 입력하면 자리 고르기, 자리 바꾸기, 반납을 할 수 있습니다. 상단 제목을 2초 누르면 감독 화면으로 갑니다. |
-| `admin.html` | 감독 화면. 좌석 현황(이름 표시), 미입실 명단, 기록, 설정. 처음 PIN은 `0000`입니다. |
+| `index.html` | 키오스크. "바코드 인식"을 눌렀을 때만 카메라가 켜지고, 학번을 직접 입력해도 됩니다. 자리 선택, 자리 변경, 반납을 할 수 있습니다. 상단 제목을 2초 누르면 감독 화면으로 갑니다. |
+| `admin.html` | 감독 화면. 입실 요약, 학년별 색과 배정 시각이 보이는 좌석 현황, 학생 검색과 상세 정보, 감독의 자리 지정과 이동, 반별 미입실, 10분 단위 입실 그래프와 반별 입실률, 기록. 처음 PIN은 `0000`이고, 설정의 "시연용 배정 채우기"로 예시 데이터를 넣을 수 있습니다. |
 | `me.html` | 배정이 끝나면 키오스크에 뜨는 QR을 휴대폰으로 찍었을 때 열리는 "내 자리" 화면입니다. |
 | `cards.html` | 명단의 학번을 Code 128 바코드로 찍은 시연용 카드 인쇄 페이지(A4 8장). |
 
@@ -61,7 +61,7 @@ public/
   js/seatmap.js    좌석 배치도 그리기
   js/scanner.js    카메라 바코드 인식 (BarcodeDetector, 없으면 ZXing)
   data/layout.json 좌석 배치 (107석, 기둥 2개)
-  data/roster.json 시연용 가짜 명단 48명
+  data/roster.json 시연용 명단 48명 (영어 이름)
   vendor/          ZXing, qrcode-generator, JsBarcode (MIT), Pretendard 글꼴 (SIL OFL 1.1)
 server/server.js   서버 모드
 Caddyfile          HTTPS 앞단 (deploy.sh가 주소를 채움)

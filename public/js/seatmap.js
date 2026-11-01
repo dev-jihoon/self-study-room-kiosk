@@ -38,6 +38,7 @@
             s.classList.add('seat--free');
           }
           if (opts.mine === c) s.classList.add('seat--mine');
+          if (opts.decorate) opts.decorate(s, c, occ || null);
           if (opts.onSeat) {
             s.type = 'button';
             s.addEventListener('click', () => opts.onSeat(c, occ || null));

@@ -49,17 +49,24 @@
   /* start(video, onCode, {facing}) -> stop() */
   async function start(video, onCode, opts) {
     opts = opts || {};
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('이 브라우저는 카메라를 지원하지 않습니다. (HTTPS 주소인지 확인하세요)');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('이 브라우저에서는 카메라를 쓸 수 없음 (HTTPS 주소에서만 가능)');
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: opts.facing || 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: false
     });
-    video.srcObject = stream;
-    video.setAttribute('playsinline', '');
-    video.muted = true;
-    await video.play();
-    const det = await makeDetector();
-    if (!det) throw new Error('바코드 인식기를 불러오지 못했습니다.');
+    let det;
+    try {
+      video.srcObject = stream;
+      video.setAttribute('playsinline', '');
+      video.muted = true;
+      await video.play();
+      det = await makeDetector();
+      if (!det) throw new Error('바코드 인식기를 불러오지 못함');
+    } catch (e) {
+      stream.getTracks().forEach((t) => t.stop());
+      video.srcObject = null;
+      throw e;
+    }
 
     let alive = true, busy = false, last = '', lastAt = 0;
     const timer = setInterval(async () => {

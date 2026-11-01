@@ -2,8 +2,8 @@
 (function () {
   'use strict';
   const Core = window.KioskCore;
-  const KEY = 'study-room-kiosk/state/v1';
-  const ADMIN_TYPES = new Set(['reset', 'settings', 'roster']);
+  const KEY = 'study-room-kiosk/state/v2';
+  const ADMIN_TYPES = new Set(['reset', 'settings', 'roster', 'demo-fill']);
 
   async function getJson(url) {
     const r = await fetch(url, { cache: 'no-store' });
@@ -33,7 +33,7 @@
       subscribe(f) { subs.add(f); return () => subs.delete(f); },
       async dispatch(action) {
         if (ADMIN_TYPES.has(action.type) || action.byTeacher) {
-          if (action.pin !== state.settings.pin) return { ok: false, error: 'PIN이 맞지 않습니다.' };
+          if (action.pin !== state.settings.pin) return { ok: false, error: 'PIN 불일치' };
         }
         const res = Core.apply(state, layout, action);
         if (res.ok) {
@@ -73,7 +73,7 @@
           if (j.state) set(j.state);
           return j.result || { ok: false, error: '서버 응답 오류' };
         } catch (e) {
-          return { ok: false, error: '서버에 연결할 수 없습니다.' };
+          return { ok: false, error: '서버 연결 실패' };
         }
       },
       refresh

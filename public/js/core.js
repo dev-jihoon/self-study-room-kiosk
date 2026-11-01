@@ -78,16 +78,16 @@
     return true;
   }
 
-  function message(name, seat) {
-    return '[자기주도학습실] ' + name + ' 학생, 오늘 야간자율학습 좌석은 ' + seat + '번입니다.';
+  function message(name, seat, d) {
+    return '[자기주도학습실] ' + name + ' ' + seat + '번 좌석 배정 (' + hhmm(d) + ')';
   }
 
-  function pushLog(state, type, student, seat, d) {
+  function pushLog(state, type, student, seat, d, by, from) {
     const at = (d || new Date()).toISOString();
-    state.log.unshift({ at, type, id: student.id, name: student.name, seat });
+    state.log.unshift({ at, type, id: student.id, name: student.name, seat, by: by || 'kiosk', from: from === undefined ? null : from });
     if (state.log.length > 500) state.log.length = 500;
     if (type === 'assign' || type === 'move') {
-      state.events.push({ at, type, id: student.id, name: student.name, seat, message: message(student.name, seat) });
+      state.events.push({ at, type, id: student.id, name: student.name, seat, message: message(student.name, seat, d) });
       if (state.events.length > 200) state.events.splice(0, state.events.length - 200);
     }
   }
@@ -100,28 +100,47 @@
 
     switch (action.type) {
       case 'assign': {
-        if (!kioskOpen(state, d)) return { ok: false, error: '야간자율학습 시간에만 배정할 수 있습니다.' };
+        if (!action.byTeacher && !kioskOpen(state, d)) return { ok: false, error: '야자 시간(' + state.settings.nightStart + '~' + state.settings.nightEnd + ')에만 배정 가능' };
         const st = findStudent(state, action.id);
-        if (!st) return { ok: false, error: '등록되지 않은 학번입니다.' };
+        if (!st) return { ok: false, error: '등록되지 않은 학번' };
         const seat = Number(action.seat);
-        if (!valid.has(seat)) return { ok: false, error: '없는 좌석입니다.' };
+        if (!valid.has(seat)) return { ok: false, error: '없는 좌석' };
         const cur = state.seats[seat];
-        if (cur && cur.id !== st.id) return { ok: false, error: seat + '번은 이미 사용 중입니다.' };
+        if (cur && cur.id !== st.id) return { ok: false, error: seat + '번은 사용 중' };
         const prev = seatOf(state, st.id);
         if (prev === seat) return { ok: true, seat, student: st, unchanged: true };
         if (prev !== null) delete state.seats[prev];
         state.seats[seat] = { id: st.id, name: st.name, at: d.toISOString() };
-        pushLog(state, prev !== null ? 'move' : 'assign', st, seat, d);
+        pushLog(state, prev !== null ? 'move' : 'assign', st, seat, d, action.byTeacher ? 'teacher' : 'kiosk', prev);
         return { ok: true, seat, student: st, moved: prev !== null, from: prev };
       }
       case 'release': {
         const st = findStudent(state, action.id);
-        if (!st) return { ok: false, error: '등록되지 않은 학번입니다.' };
+        if (!st) return { ok: false, error: '등록되지 않은 학번' };
         const prev = seatOf(state, st.id);
-        if (prev === null) return { ok: false, error: '배정된 좌석이 없습니다.' };
+        if (prev === null) return { ok: false, error: '배정된 좌석 없음' };
         delete state.seats[prev];
-        pushLog(state, action.byTeacher ? 'force-release' : 'release', st, prev, d);
+        pushLog(state, 'release', st, prev, d, action.byTeacher ? 'teacher' : 'kiosk');
         return { ok: true, seat: prev, student: st };
+      }
+      case 'demo-fill': {
+        /* 시연용: 아직 자리가 없는 학생 일부를 지난 90분 사이에 배정된 것처럼 채운다 */
+        const free = allSeatNumbers(layout).filter((n) => !state.seats[n]);
+        const waiting = state.roster.filter((s) => seatOf(state, s.id) === null);
+        let seed = waiting.length * 7919 + free.length;
+        const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+        const picks = waiting.filter(() => rnd() < 0.8);
+        const times = picks.map(() => d.getTime() - Math.floor(rnd() * 90 * 60000)).sort((a, b) => a - b);
+        picks.forEach((st, i) => {
+          if (!free.length) return;
+          const seat = free.splice(Math.floor(rnd() * free.length), 1)[0];
+          const at = new Date(times[i]);
+          state.seats[seat] = { id: st.id, name: st.name, at: at.toISOString() };
+          pushLog(state, 'assign', st, seat, at, 'kiosk');
+        });
+        state.log.sort((a, b) => (a.at < b.at ? 1 : -1));
+        state.events.sort((a, b) => (a.at < b.at ? -1 : 1));
+        return { ok: true, count: picks.length };
       }
       case 'reset': {
         state.seats = {};
@@ -135,14 +154,14 @@
         return { ok: true };
       }
       case 'roster': {
-        if (!Array.isArray(action.roster)) return { ok: false, error: '명단 형식이 올바르지 않습니다.' };
+        if (!Array.isArray(action.roster)) return { ok: false, error: '명단 형식 오류' };
         state.roster = action.roster.map((s) => ({ id: String(s.id), name: String(s.name), night: s.night !== false }));
         const ids = new Set(state.roster.map((s) => s.id));
         for (const k in state.seats) if (!ids.has(state.seats[k].id)) delete state.seats[k];
         return { ok: true };
       }
       default:
-        return { ok: false, error: '알 수 없는 요청입니다.' };
+        return { ok: false, error: '알 수 없는 요청' };
     }
   }
 

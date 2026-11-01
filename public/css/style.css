@@ -45,44 +45,54 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .screen { display: none; height: calc(100% - 64px); }
 .screen.is-active { display: flex; }
 
-/* 1. 대기 화면 */
-.idle { gap: 28px; padding: 28px; }
-.camera {
-  flex: 1.15; position: relative; border-radius: 18px; overflow: hidden; background: #0e1013;
-  display: flex; align-items: center; justify-content: center;
+/* 대기 화면 */
+.idle { gap: 32px; padding: 32px; align-items: stretch; }
+.idle__col { flex: 1; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.idle__label { font-size: 15px; font-weight: 700; color: var(--muted); letter-spacing: .04em; }
+.scan-launch {
+  flex: 1; border: 0; border-radius: 20px; background: var(--accent); color: #fff;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
 }
-.camera video { width: 100%; height: 100%; object-fit: cover; }
-.camera.is-mirror video { transform: scaleX(-1); }
-.camera__frame {
-  position: absolute; left: 12%; right: 12%; top: 34%; bottom: 34%;
-  border: 3px solid rgba(255,255,255,.85); border-radius: 12px; pointer-events: none;
+.scan-launch:active { filter: brightness(.92); }
+.scan-launch__bars {
+  width: 58%; max-width: 300px; height: 96px; border-radius: 6px; background-color: #fff;
+  background-image: repeating-linear-gradient(90deg,
+    var(--accent) 0 3px, transparent 3px 7px, var(--accent) 7px 13px, transparent 13px 16px,
+    var(--accent) 16px 18px, transparent 18px 24px, var(--accent) 24px 29px, transparent 29px 32px);
+  background-clip: content-box; padding: 14px 18px; box-sizing: border-box;
 }
-.camera__hint {
-  position: absolute; left: 0; right: 0; bottom: 22px; text-align: center; color: #fff;
-  font-size: 18px; font-weight: 600; text-shadow: 0 1px 4px rgba(0,0,0,.6);
-}
-.camera__msg { color: #c9ccd2; font-size: 16px; padding: 24px; text-align: center; line-height: 1.6; }
-.camera__flip {
-  position: absolute; top: 14px; right: 14px; border: 0; border-radius: 10px; padding: 8px 12px;
-  background: rgba(0,0,0,.5); color: #fff; font-size: 14px;
-}
-
-.entry { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 18px; }
-.entry h1 { margin: 0; font-size: 30px; line-height: 1.35; }
-.entry p { margin: 0; color: var(--muted); font-size: 17px; line-height: 1.6; }
+.scan-launch__text { font-size: 30px; font-weight: 800; }
+.scan-launch__sub { font-size: 16px; opacity: .8; }
 .entry__input {
   height: 72px; border-radius: 14px; border: 2px solid var(--line); background: var(--panel);
   font-size: 34px; font-weight: 700; letter-spacing: 6px; text-align: center; font-variant-numeric: tabular-nums;
   display: flex; align-items: center; justify-content: center;
 }
 .entry__input.is-empty { color: #b6bac2; font-size: 22px; letter-spacing: 0; font-weight: 500; }
-.numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.numpad { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr; gap: 10px; }
 .numpad button {
-  height: 64px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel);
+  min-height: 56px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel);
   font-size: 26px; font-weight: 600;
 }
 .numpad button:active { background: #e9ebef; }
 .numpad .key-ok { background: var(--accent); color: #fff; border-color: var(--accent); font-size: 20px; }
+
+/* 바코드 인식 화면 */
+.scan { flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 24px; background: #111317; }
+.scan__view {
+  position: relative; width: min(860px, 92%); aspect-ratio: 16 / 7; border-radius: 18px; overflow: hidden; background: #000;
+}
+.scan__view video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.scan__view.is-mirror video { transform: scaleX(-1); }
+.scan__view.is-error video { visibility: hidden; }
+.scan__frame {
+  position: absolute; left: 14%; right: 14%; top: 22%; bottom: 22%;
+  border: 3px solid rgba(255,255,255,.9); border-radius: 12px; pointer-events: none;
+}
+.scan__view.is-error .scan__frame { display: none; }
+.scan__msg { margin: 0; color: #e9ebef; font-size: 20px; font-weight: 600; text-align: center; max-width: 760px; line-height: 1.5; }
+.scan .btn { background: #22262c; color: #fff; border-color: #343941; }
+.scan .btn--primary { background: #fff; color: var(--ink); border-color: #fff; }
 
 /* 2. 학생 확인, 5. 완료 */
 .center { flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 32px; text-align: center; }
@@ -101,8 +111,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* 3. 좌석 선택 */
 .pick { flex-direction: column; padding: 18px 28px 22px; gap: 14px; }
 .pick__head { display: flex; justify-content: space-between; align-items: center; }
-.pick__head h2 { margin: 0; font-size: 24px; }
-.pick__head p { margin: 4px 0 0; color: var(--muted); font-size: 16px; }
+.pick__title { display: flex; align-items: center; gap: 12px; }
+.pick__head h2 { margin: 0; font-size: 26px; }
+.chip { padding: 6px 12px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 16px; font-weight: 700; }
 .pick__body { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .legend { display: flex; gap: 16px; color: var(--muted); font-size: 15px; align-items: center; }
 .legend i { display: inline-block; width: 18px; height: 14px; border-radius: 4px; margin-right: 6px; vertical-align: -2px; border: 1px solid var(--line); }
@@ -143,6 +154,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .seatmap--admin .seat__name { font-size: 13px; font-weight: 600; color: var(--ink); }
 
 /* 완료 화면 */
+.done__who { font-size: 24px; font-weight: 700; color: var(--ink) !important; }
 .done__seat { font-size: 120px; font-weight: 800; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
 .done__seat small { font-size: 40px; font-weight: 700; margin-left: 6px; color: var(--ink); }
 .done__row { display: flex; gap: 40px; align-items: center; }
@@ -172,7 +184,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* 작은 화면 */
 @media (orientation: portrait) {
   .idle { flex-direction: column; }
-  .camera { flex: 1; min-height: 40%; }
+  .scan-launch { min-height: 220px; }
 }
 @media (max-height: 760px) {
   :root { --seat-h: 42px; }

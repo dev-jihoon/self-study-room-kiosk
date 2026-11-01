@@ -43,7 +43,7 @@ async function post(p, body) {
     assert.ok((await post('/api/login', { pin: '1234' })).ok, '로그인');
 
     const ev = await (await fetch(base + '/api/events?since=')).json();
-    assert.ok(ev.events.length >= 2 && ev.events[0].message.includes('번입니다'), '알림 목록');
+    assert.ok(ev.events.length >= 2 && ev.events[0].message.includes('번 좌석 배정'), '알림 목록');
 
     r = await post('/api/action', { type: 'release', id: a });
     assert.ok(r.result.ok && r.result.seat === 21, '반납');
