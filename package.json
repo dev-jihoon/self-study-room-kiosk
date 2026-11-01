@@ -1,0 +1,12 @@
+{
+  "name": "study-room-kiosk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "자기주도학습실 야간자율학습 좌석 배정 키오스크",
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node scripts/smoke-test.js"
+  },
+  "engines": { "node": ">=18" },
+  "license": "MIT"
+}

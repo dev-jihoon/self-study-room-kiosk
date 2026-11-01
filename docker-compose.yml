@@ -1,0 +1,17 @@
+services:
+  kiosk:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8443:8080"
+    environment:
+      ADMIN_PIN: "0000"
+      DEMO_MODE: "1"
+      # 카메라를 쓰려면 HTTPS가 필요하다. scripts/make-cert.sh로 만든 인증서를 넣는다.
+      TLS_CERT: /certs/cert.pem
+      TLS_KEY: /certs/key.pem
+      # 알림 봇이 /api/events를 가져갈 때 쓰는 토큰 (비워 두면 검사하지 않음)
+      EVENTS_TOKEN: ""
+    volumes:
+      - ./data:/data
+      - ./certs:/certs:ro

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>내 자리</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  body { height: auto; min-height: 100%; user-select: text; }
+  .me { max-width: 520px; margin: 0 auto; padding: 28px 18px 40px; text-align: center; }
+  .me__label { color: var(--muted); font-size: 16px; margin: 0; }
+  .me__name { font-size: 22px; font-weight: 700; margin: 6px 0 18px; }
+  .me__seat { font-size: 96px; font-weight: 800; color: var(--accent); line-height: 1; font-variant-numeric: tabular-nums; }
+  .me__seat small { font-size: 32px; color: var(--ink); margin-left: 4px; }
+  .me__time { color: var(--muted); font-size: 15px; margin: 12px 0 24px; }
+  .me__map { overflow-x: auto; padding: 12px; background: var(--panel); border-radius: 14px; border: 1px solid var(--line); }
+  .me__map .seatmap { --seat-w: 26px; --seat-h: 20px; --gap: 3px; gap: 7px; margin: 0 auto; }
+  .me__map .seat { border-radius: 4px; }
+  .me__map .seat__no { font-size: 9px; font-weight: 600; }
+  .me__map .seat--pillar { font-size: 0; }
+  .me__map .seat-row__label { width: 16px; font-size: 9px; border-radius: 3px; }
+  .me__map .seatmap__door { font-size: 10px; padding: 3px 8px; }
+  .me__map .seat--mine { transform: scale(1.15); }
+  .me__save { margin-top: 18px; color: var(--muted); font-size: 14px; }
+  .me__err { color: var(--danger); }
+</style>
+</head>
+<body>
+<main class="me">
+  <p class="me__label">오늘 야간자율학습 좌석</p>
+  <div class="me__name" id="name"></div>
+  <div class="me__seat"><span id="seat"></span><small>번</small></div>
+  <p class="me__time" id="time"></p>
+  <div class="me__map" id="map"></div>
+  <p class="me__save">이 화면을 캡처해 두면 자리를 잊어도 바로 확인할 수 있습니다.</p>
+</main>
+<script src="js/seatmap.js"></script>
+<script>
+(async function () {
+  const q = new URLSearchParams(location.search);
+  const seat = Number(q.get('s'));
+  const name = q.get('n') || '';
+  const day = q.get('d') || '';
+  const t = q.get('t') || '';
+  if (!seat) { document.querySelector('.me').innerHTML = '<p class="me__err">좌석 정보가 없습니다. 키오스크의 QR 코드를 다시 찍어 주세요.</p>'; return; }
+  document.getElementById('name').textContent = name ? name + ' 학생' : '';
+  document.getElementById('seat').textContent = seat;
+  document.getElementById('time').textContent = [day, t && (t + ' 배정')].filter(Boolean).join(' ');
+  document.title = seat + '번 자리';
+  try {
+    const layout = await (await fetch('data/layout.json')).json();
+    window.SeatMap.render(document.getElementById('map'), layout, { seats: {} }, { mode: 'view', mine: seat });
+    const mine = document.querySelector('.seat--mine');
+    if (mine) mine.scrollIntoView({ block: 'nearest', inline: 'center' });
+  } catch (e) { document.getElementById('map').hidden = true; }
+})();
+</script>
+</body>
+</html>

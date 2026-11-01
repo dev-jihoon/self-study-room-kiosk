@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#ffffff">
+<link rel="manifest" href="manifest.webmanifest">
+<title>자습실 좌석 배정</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar__title" id="title">자기주도학습실 좌석 배정</div>
+  <div class="topbar__right">
+    <span id="status" class="badge"></span>
+    <span id="clock" class="topbar__clock"></span>
+  </div>
+</header>
+
+<!-- 1. 대기: 바코드 또는 학번 -->
+<section class="screen idle is-active" id="s-idle">
+  <div class="camera is-mirror" id="camera">
+    <video id="video" playsinline muted></video>
+    <div class="camera__frame"></div>
+    <div class="camera__hint">학생증 바코드를 네모 안에 비춰 주세요</div>
+    <button class="camera__flip" id="flip" type="button">카메라 전환</button>
+  </div>
+  <div class="entry">
+    <h1>야간자율학습 좌석을<br>배정받으세요</h1>
+    <p>학생증 바코드를 카메라에 비추거나 학번을 입력하세요.</p>
+    <div class="entry__input is-empty" id="idbox">학번 5자리</div>
+    <div class="numpad" id="numpad">
+      <button>1</button><button>2</button><button>3</button>
+      <button>4</button><button>5</button><button>6</button>
+      <button>7</button><button>8</button><button>9</button>
+      <button data-k="del">지움</button><button>0</button><button data-k="ok" class="key-ok">확인</button>
+    </div>
+  </div>
+</section>
+
+<!-- 2. 학생 확인 -->
+<section class="screen center" id="s-who">
+  <div class="who__id" id="who-id"></div>
+  <h2 id="who-name"></h2>
+  <p id="who-msg"></p>
+  <div class="actions" id="who-actions"></div>
+</section>
+
+<!-- 3. 좌석 선택 -->
+<section class="screen pick" id="s-pick">
+  <div class="pick__head">
+    <div>
+      <h2 id="pick-title">앉을 자리를 고르세요</h2>
+      <p id="pick-sub">회색 자리는 이미 사용 중입니다.</p>
+    </div>
+    <div class="legend">
+      <span><i class="l-free"></i>빈자리</span>
+      <span><i class="l-taken"></i>사용 중</span>
+      <span><i class="l-mine"></i>내 자리</span>
+      <button class="btn btn--small" id="pick-cancel" type="button">처음으로</button>
+    </div>
+  </div>
+  <div class="pick__body" id="pick-map"></div>
+</section>
+
+<!-- 4. 완료 -->
+<section class="screen center" id="s-done">
+  <p id="done-name"></p>
+  <div class="done__row">
+    <div class="done__seat"><span id="done-seat"></span><small>번</small></div>
+    <div>
+      <div class="qr" id="done-qr"></div>
+      <div class="qr__cap">휴대폰 카메라로 찍으면<br>내 자리를 확인할 수 있어요</div>
+    </div>
+  </div>
+  <div class="actions"><button class="btn btn--primary" id="done-ok" type="button">확인</button></div>
+  <div class="countdown" id="done-count"></div>
+</section>
+
+<!-- 5. 안내 메시지 -->
+<section class="screen center" id="s-msg">
+  <h2 id="msg-title"></h2>
+  <p id="msg-body"></p>
+</section>
+
+<div class="modal-wrap" id="modal">
+  <div class="modal">
+    <h3 id="modal-title"></h3>
+    <p id="modal-body"></p>
+    <div class="actions">
+      <button class="btn" id="modal-no" type="button">다른 자리</button>
+      <button class="btn btn--primary" id="modal-yes" type="button">여기 앉기</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="vendor/zxing.min.js"></script>
+<script src="vendor/qrcode.js"></script>
+<script src="js/core.js"></script>
+<script src="js/store.js"></script>
+<script src="js/seatmap.js"></script>
+<script src="js/scanner.js"></script>
+<script src="js/kiosk.js"></script>
+</body>
+</html>
