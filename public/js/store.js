@@ -33,7 +33,7 @@
       subscribe(f) { subs.add(f); return () => subs.delete(f); },
       async dispatch(action) {
         if (ADMIN_TYPES.has(action.type) || action.byTeacher) {
-          if (action.pin !== state.settings.pin) return { ok: false, error: 'PIN 불일치' };
+          if (action.pin !== state.settings.pin) return { ok: false, error: 'PIN이 맞지 않아요' };
         }
         const res = Core.apply(state, layout, action);
         if (res.ok) {
@@ -71,9 +71,9 @@
           const r = await fetch('api/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(action) });
           const j = await r.json();
           if (j.state) set(j.state);
-          return j.result || { ok: false, error: '서버 응답 오류' };
+          return j.result || { ok: false, error: '서버 응답이 이상해요' };
         } catch (e) {
-          return { ok: false, error: '서버 연결 실패' };
+          return { ok: false, error: '서버에 연결하지 못했어요' };
         }
       },
       refresh

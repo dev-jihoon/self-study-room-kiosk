@@ -10,45 +10,38 @@
   let pin = '';
   try { pin = sessionStorage.getItem(PIN_KEY) || ''; } catch (e) {}
   let tab = 'map';
-  let selected = null;     // 상세 정보에 보이는 학생 학번
-  let assigning = null;    // 자리 지정 중인 학생
+  let selected = null;     // 오른쪽에 보이는 학생
+  let assigning = null;    // 자리를 정해 주는 중인 학생
   let logFilter = 'all';
 
-  $('mode').textContent = store.mode === 'server' ? '서버' : '이 기기 저장';
-  $('gate-hint').textContent = store.mode === 'server' ? '' : '처음 PIN은 0000, 설정에서 변경';
+  $('gate-hint').textContent = store.mode === 'server' ? '' : '처음 PIN은 0000이에요';
 
-  /* 공통 도구 */
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const fmtTime = (iso) => Core.hhmm(new Date(iso));
-  const typeName = { assign: '배정', move: '이동', release: '반납' };
-  function grade(id) { return Number(String(id)[0]) || 0; }
-  function classKey(id) { id = String(id); return id[0] + '-' + Number(id.slice(1, 3)); }
-  function classLabel(id) { id = String(id); return id[0] + '학년 ' + Number(id.slice(1, 3)) + '반 ' + Number(id.slice(3, 5)) + '번'; }
-  function since(iso) {
-    const m = Math.max(0, Math.floor((Date.now() - new Date(iso)) / 60000));
+  const hm = (iso) => Core.hhmm(new Date(iso));
+  const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+  const klass = (id) => String(id)[0] + '학년 ' + Number(String(id).slice(1, 3)) + '반';
+  const fullClass = (id) => klass(id) + ' ' + Number(String(id).slice(3, 5)) + '번';
+  function ago(iso) {
+    const m = Math.floor((Date.now() - new Date(iso)) / 60000);
     if (m < 1) return '방금';
     if (m < 60) return m + '분 전';
-    return Math.floor(m / 60) + '시간 ' + (m % 60) + '분 전';
+    return Math.floor(m / 60) + '시간 전';
   }
-  function duration(iso) {
-    const m = Math.max(0, Math.floor((Date.now() - new Date(iso)) / 60000));
-    return m < 60 ? m + '분' : Math.floor(m / 60) + '시간 ' + (m % 60) + '분';
-  }
-  function toMin(hm) { const [h, m] = hm.split(':').map(Number); return h * 60 + m; }
+  function length(min) { return min < 60 ? min + '분' : Math.floor(min / 60) + '시간 ' + (min % 60) + '분'; }
 
-  function toast(text, isError) {
+  function toast(text) {
     const t = $('toast');
     t.textContent = text;
-    t.className = 'toast is-show' + (isError ? ' toast--error' : '');
+    t.className = 'toast is-show';
     clearTimeout(t._h);
-    t._h = setTimeout(() => { t.className = 'toast'; }, 2600);
+    t._h = setTimeout(() => { t.className = 'toast'; }, 2400);
   }
 
-  /* 확인 창 (브라우저 confirm 대신) */
   function ask(title, body, yesText, danger) {
     return new Promise((resolve) => {
       $('confirm-title').textContent = title;
       $('confirm-body').textContent = body || '';
+      $('confirm-body').hidden = !body;
       const yes = $('confirm-yes');
       yes.textContent = yesText || '확인';
       yes.className = 'btn ' + (danger ? 'btn--danger' : 'btn--primary');
@@ -69,7 +62,7 @@
   }
   async function enter() {
     const p = $('pin').value.trim();
-    if (!(await checkPin(p))) { toast('PIN 불일치', true); $('pin').value = ''; return; }
+    if (!(await checkPin(p))) { toast('PIN이 맞지 않아요'); $('pin').value = ''; return; }
     pin = p;
     try { sessionStorage.setItem(PIN_KEY, pin); } catch (e) {}
     openMain();
@@ -84,7 +77,8 @@
     render();
   }
 
-  const admin = (action) => store.dispatch(Object.assign({ pin, byTeacher: action.type === 'assign' || action.type === 'release' }, action));
+  const teacher = (action) => store.dispatch(Object.assign({ pin, byTeacher: true }, action));
+  const adminAct = (action) => store.dispatch(Object.assign({ pin }, action));
 
   /* 탭 */
   function setTab(t) {
@@ -95,150 +89,131 @@
     render();
   }
   $('tabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setTab(b.dataset.tab); });
+  $('go-absent').addEventListener('click', () => setTab('absent'));
 
-  /* 계산 */
-  function summary() {
+  function counts() {
     const st = store.state;
-    const seatedIds = new Set(Object.values(st.seats).map((s) => s.id));
+    const seated = new Set(Object.values(st.seats).map((s) => s.id));
     const night = st.roster.filter((s) => s.night !== false);
-    const absent = night.filter((s) => !seatedIds.has(s.id));
-    const extra = st.roster.filter((s) => s.night === false && seatedIds.has(s.id));
-    const total = Core.allSeatNumbers(layout).length;
-    return { st, seatedIds, night, absent, extra, total, used: Object.keys(st.seats).length };
+    const absent = night.filter((s) => !seated.has(s.id));
+    const extra = st.roster.filter((s) => s.night === false && seated.has(s.id));
+    return { st, seated, night, absent, extra };
   }
 
   function render() {
     if ($('main').hidden) return;
-    const s = summary();
+    const c = counts();
     const now = new Date();
     $('clock').textContent = Core.hhmm(now);
     $('today').textContent = (now.getMonth() + 1) + '월 ' + now.getDate() + '일 ' + '일월화수목금토'[now.getDay()] + '요일';
-
-    renderOverview(s, now);
-    $('tab-absent-n').textContent = s.absent.length;
-    if (tab === 'map') renderBoard(s);
-    if (tab === 'absent') renderAbsent(s);
-    if (tab === 'stats') renderStats(s, now);
-    $('roster-count').textContent = s.st.roster.length;
+    renderSummary(c, now);
+    if (tab === 'map') renderBoard(c);
+    if (tab === 'absent') renderAbsent(c);
+    if (tab === 'stats') renderStats(c, now);
+    $('roster-count').textContent = c.st.roster.length + '명';
   }
 
-  function renderOverview(s, now) {
-    const set = s.st.settings;
+  function renderSummary(c, now) {
+    const set = c.st.settings;
     const nowM = now.getHours() * 60 + now.getMinutes();
-    const a = toMin(set.nightStart), b = toMin(set.nightEnd);
-    let text;
-    if (Core.isNightTime(s.st, now)) {
-      const left = b - nowM;
-      text = '야자 운영 중 (' + set.nightStart + '~' + set.nightEnd + '), 종료까지 ' + (left >= 60 ? Math.floor(left / 60) + '시간 ' : '') + (left % 60) + '분';
-    } else if (nowM < a) {
-      const left = a - nowM;
-      text = '야자 시작 전, ' + set.nightStart + ' 시작까지 ' + (left >= 60 ? Math.floor(left / 60) + '시간 ' : '') + (left % 60) + '분';
-    } else {
-      text = '오늘 야자 종료 (' + set.nightEnd + ')';
-    }
-    if (set.demoMode) text += ', 시연 모드 켜짐';
-    $('run-state').textContent = text;
-    const rate = s.night.length ? Math.round((s.night.length - s.absent.length) / s.night.length * 100) : 0;
-    $('st-night').textContent = s.night.length;
-    $('st-in').textContent = s.night.length - s.absent.length;
-    $('st-rate').textContent = rate + '%';
-    $('st-absent').textContent = s.absent.length;
-    $('st-extra').textContent = s.extra.length;
-    $('st-free').textContent = s.total - s.used;
-    $('st-total').textContent = '/' + s.total;
-    $('meter').style.width = rate + '%';
+    const start = toMin(set.nightStart);
+    let state;
+    if (Core.isNightTime(c.st, now)) state = '야자 중이에요. ' + set.nightEnd + '에 끝나요';
+    else if (nowM < start) state = set.nightStart + '에 야자가 시작돼요';
+    else state = '오늘 야자는 끝났어요';
+    if (set.demoMode) state += ' (시연 모드)';
+    $('run-state').textContent = state;
+    const came = c.night.length - c.absent.length;
+    $('sum-title').innerHTML = '신청한 ' + c.night.length + '명 중 <b>' + came + '명</b>이 왔어요';
+    $('meter').style.width = (c.night.length ? came / c.night.length * 100 : 0) + '%';
+    const go = $('go-absent');
+    go.textContent = c.absent.length ? '아직 안 온 학생 ' + c.absent.length + '명' : '신청한 학생이 모두 왔어요';
+    go.classList.toggle('is-warn', c.absent.length > 0);
+    $('sum-extra').textContent = c.extra.length ? '신청 안 하고 온 학생 ' + c.extra.length + '명' : '';
   }
 
-  /* 좌석 현황 */
-  function renderBoard(s) {
-    const st = s.st;
+  /* 좌석 */
+  function renderBoard(c) {
+    const st = c.st;
     const selSeat = selected ? Core.seatOf(st, selected) : null;
     const map = window.SeatMap.render($('map'), layout, st, {
       mode: 'admin',
       decorate(el, no, occ) {
         if (no === selSeat) el.classList.add('is-selected');
         if (assigning && !occ) el.classList.add('is-target');
-        if (!occ) return;
-        el.classList.add('g' + grade(occ.id));
-        if (Date.now() - new Date(occ.at) < RECENT_MS) el.classList.add('is-new');
-        const t = document.createElement('span');
-        t.className = 'seat__time';
-        t.textContent = fmtTime(occ.at);
-        el.appendChild(t);
+        if (occ && Date.now() - new Date(occ.at) < RECENT_MS) el.classList.add('is-new');
       },
       onSeat(no, occ) {
         if (assigning) {
-          if (occ) { toast(no + '번은 사용 중', true); return; }
+          if (occ) { toast('이미 누가 앉아 있어요'); return; }
           doAssign(assigning, no);
           return;
         }
-        if (occ) { selected = occ.id; render(); }
-        else { selected = null; render(); }
+        selected = occ ? occ.id : null;
+        render();
       }
     });
-    requestAnimationFrame(() => window.SeatMap.fit($('map'), map, 1.25));
-    renderDetail(s);
-    renderFeed(st);
-    $('assign-hint').hidden = !assigning;
+    requestAnimationFrame(() => window.SeatMap.fit($('map'), map, 1.3));
+    $('assign-bar').hidden = !assigning;
     if (assigning) {
-      const stu = Core.findStudent(st, assigning);
-      $('assign-hint-text').textContent = (stu ? stu.name + ' ' + stu.id : assigning) + ', 지정할 빈자리 선택';
+      const s = Core.findStudent(st, assigning);
+      $('assign-text').textContent = (s ? s.name + '님' : '') + ' 자리를 배치도에서 골라 주세요';
     }
+    renderDetail(st);
+    renderFeed(st);
   }
 
-  function renderDetail(s) {
+  function renderDetail(st) {
     const box = $('detail');
-    const st = s.st;
     const stu = selected ? Core.findStudent(st, selected) : null;
-    if (!stu) {
-      box.innerHTML = '<p class="detail__empty">배치도에서 좌석을 누르거나 학생을 검색하면 여기에 자세한 정보가 나옴</p>';
-      return;
-    }
+    $('feed-box').hidden = !!stu;
+    if (!stu) { box.innerHTML = ''; box.className = ''; return; }
+    box.className = 'detail';
     const seat = Core.seatOf(st, stu.id);
     const occ = seat !== null ? st.seats[seat] : null;
-    const history = st.log.filter((l) => l.id === stu.id);
+    const hist = st.log.filter((l) => l.id === stu.id);
+    const rows = [['자리', seat !== null ? seat + '번' : '아직 안 왔어요']];
+    if (occ) {
+      rows.push(['들어온 시각', hm(occ.at)]);
+      rows.push(['있었던 시간', length(Math.floor((Date.now() - new Date(occ.at)) / 60000))]);
+    }
+    rows.push(['야자 신청', stu.night === false ? '안 했어요' : '했어요']);
     box.innerHTML =
-      '<div class="detail__top"><div><div class="detail__name">' + esc(stu.name) + '</div>'
-      + '<div class="detail__id">' + stu.id + ', ' + classLabel(stu.id) + '</div></div>'
-      + '<div class="detail__seat">' + (seat !== null ? seat + '<small>번</small>' : '<span class="detail__none">미입실</span>') + '</div></div>'
-      + '<dl class="detail__dl">'
-      + '<dt>야자 신청</dt><dd>' + (stu.night === false ? '안 함' : '함') + '</dd>'
-      + (occ ? '<dt>배정 시각</dt><dd>' + fmtTime(occ.at) + '</dd><dt>이용 시간</dt><dd>' + duration(occ.at) + '</dd>' : '')
-      + '<dt>오늘 기록</dt><dd>' + (history.length ? history.length + '건' : '없음') + '</dd>'
-      + '</dl>'
-      + (history.length ? '<ol class="detail__hist">' + history.slice(0, 5).map((l) => '<li><time>' + fmtTime(l.at) + '</time>' + logText(l) + '</li>').join('') + '</ol>' : '')
-      + '<div class="detail__actions"></div>';
-    const acts = box.querySelector('.detail__actions');
-    const btn = (text, cls, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn--small ' + cls; b.textContent = text; b.onclick = fn; acts.appendChild(b); };
+      '<div class="detail__top"><div><div class="detail__name">' + esc(stu.name) + '</div><div class="detail__sub">' + fullClass(stu.id) + ', 학번 ' + stu.id + '</div></div>'
+      + '<button type="button" class="detail__close" id="detail-close">닫기</button></div>'
+      + '<dl class="detail__rows">' + rows.map((r) => '<div><dt>' + r[0] + '</dt><dd>' + r[1] + '</dd></div>').join('') + '</dl>'
+      + (hist.length ? '<ol class="detail__hist">' + hist.slice(0, 4).map((l) => '<li><time>' + hm(l.at) + '</time>' + logText(l) + '</li>').join('') + '</ol>' : '')
+      + '<div class="btn-row" id="detail-actions"></div>';
+    $('detail-close').onclick = () => { selected = null; render(); };
+    const acts = $('detail-actions');
+    const add = (text, cls, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn ' + cls; b.textContent = text; b.onclick = fn; acts.appendChild(b); };
     if (seat !== null) {
-      btn('자리 이동', '', () => startAssign(stu.id));
-      btn('반납 처리', 'btn--danger', async () => {
-        if (!(await ask(seat + '번 반납 처리', stu.name + ' ' + stu.id, '반납', true))) return;
-        const r = await admin({ type: 'release', id: stu.id });
-        toast(r.ok ? seat + '번 반납 처리 완료' : r.error, !r.ok);
+      add('자리 옮기기', '', () => startAssign(stu.id));
+      add('반납 처리', 'btn--danger', async () => {
+        if (!(await ask(stu.name + '님 자리를 반납할까요?', seat + '번이 빈자리가 돼요', '반납할게요', true))) return;
+        const r = await teacher({ type: 'release', id: stu.id });
+        toast(r.ok ? seat + '번을 반납했어요' : r.error);
       });
     } else {
-      btn('자리 지정', 'btn--primary', () => startAssign(stu.id));
+      add('자리 정해 주기', 'btn--primary', () => startAssign(stu.id));
     }
-    btn('닫기', '', () => { selected = null; render(); });
   }
 
   function logText(l) {
-    const by = l.by === 'teacher' ? ' (감독)' : '';
-    if (l.type === 'move') return (l.from ? l.from + '번에서 ' : '') + l.seat + '번으로 이동' + by;
-    if (l.type === 'release') return l.seat + '번 반납' + by;
-    return l.seat + '번 배정' + by;
+    const who = l.by === 'teacher' ? ' (감독)' : '';
+    if (l.type === 'move') return (l.from ? l.from + '번에서 ' : '') + l.seat + '번으로 옮겼어요' + who;
+    if (l.type === 'release') return l.seat + '번을 반납했어요' + who;
+    return l.seat + '번에 앉았어요' + who;
   }
 
   function renderFeed(st) {
-    const items = st.log.slice(0, 8);
+    const items = st.log.slice(0, 7);
     $('feed').innerHTML = items.length
-      ? items.map((l) => '<li class="feed__item feed__item--' + l.type + '"><button type="button" data-id="' + l.id + '"><b>' + esc(l.name) + '</b> ' + logText(l) + '</button><time>' + since(l.at) + '</time></li>').join('')
-      : '<li class="feed__empty">아직 기록 없음</li>';
+      ? items.map((l) => '<li><button type="button" data-id="' + l.id + '"><b>' + esc(l.name) + '</b>' + logText(l) + '</button><time>' + ago(l.at) + '</time></li>').join('')
+      : '<li class="feed__empty">아직 아무도 안 왔어요</li>';
   }
   $('feed').addEventListener('click', (e) => { const b = e.target.closest('button[data-id]'); if (b) { selected = b.dataset.id; render(); } });
 
-  /* 자리 지정과 이동 */
   function startAssign(id) {
     assigning = id;
     selected = id;
@@ -246,45 +221,46 @@
   }
   $('assign-cancel').addEventListener('click', () => { assigning = null; render(); });
   async function doAssign(id, seat) {
-    const r = await admin({ type: 'assign', id, seat });
-    if (!r.ok) { toast(r.error, true); return; }
+    const r = await teacher({ type: 'assign', id, seat });
+    if (!r.ok) { toast(r.error); return; }
     assigning = null;
     selected = id;
-    toast(r.student.name + ' ' + seat + '번 ' + (r.moved ? '이동' : '지정') + ' 완료');
+    toast(r.student.name + '님을 ' + seat + '번에 ' + (r.moved ? '옮겼어요' : '앉혔어요'));
     render();
   }
 
-  /* 검색 */
+  /* 찾기 */
   $('search').addEventListener('input', () => {
     const q = $('search').value.trim().toLowerCase();
-    const ul = $('search-results');
+    const ul = $('results');
     if (!q) { ul.innerHTML = ''; return; }
     const st = store.state;
     const hits = st.roster.filter((s) => s.id.includes(q) || s.name.toLowerCase().includes(q)).slice(0, 6);
     ul.innerHTML = hits.length
-      ? hits.map((s) => { const seat = Core.seatOf(st, s.id); return '<li><button type="button" data-id="' + s.id + '"><span>' + esc(s.name) + ' <small>' + s.id + '</small></span><span class="' + (seat !== null ? 'pill' : 'pill pill--off') + '">' + (seat !== null ? seat + '번' : '미입실') + '</span></button></li>'; }).join('')
-      : '<li class="search-results__none">찾는 학생 없음</li>';
+      ? hits.map((s) => { const seat = Core.seatOf(st, s.id); return '<li><button type="button" data-id="' + s.id + '"><span>' + esc(s.name) + '<small>' + s.id + '</small></span><span class="tag' + (seat === null ? ' tag--off' : '') + '">' + (seat !== null ? seat + '번' : '안 왔어요') + '</span></button></li>'; }).join('')
+      : '<li class="results__none">찾는 학생이 없어요</li>';
   });
-  $('search-results').addEventListener('click', (e) => {
+  $('results').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-id]');
     if (!b) return;
     selected = b.dataset.id;
     $('search').value = '';
-    $('search-results').innerHTML = '';
+    $('results').innerHTML = '';
     render();
   });
 
-  /* 미입실 */
-  function renderAbsent(s) {
+  /* 안 온 학생 */
+  function renderAbsent(c) {
+    $('absent-title').textContent = c.absent.length ? '아직 안 온 학생 ' + c.absent.length + '명' : '신청한 학생이 모두 왔어요';
     const groups = new Map();
-    s.absent.forEach((stu) => { const k = classKey(stu.id); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(stu); });
-    const keys = [...groups.keys()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-    $('absent-classes').innerHTML = keys.length
-      ? keys.map((k) => { const [g, c] = k.split('-'); return '<div class="class-card"><div class="class-card__h">' + g + '학년 ' + c + '반 <span>' + groups.get(k).length + '명</span></div><div class="chips">' + groups.get(k).map((stu) => '<button type="button" class="chip-btn" data-id="' + stu.id + '">' + esc(stu.name) + ' <small>' + stu.id.slice(3) + '</small></button>').join('') + '</div></div>'; }).join('')
-      : '<p class="note">야자 신청자 모두 입실</p>';
-    $('extra-list').innerHTML = s.extra.length
-      ? s.extra.map((stu) => '<button type="button" class="chip-btn" data-id="' + stu.id + '" data-view="1">' + esc(stu.name) + ' <small>' + Core.seatOf(s.st, stu.id) + '번</small></button>').join('')
-      : '<p class="note">없음</p>';
+    c.absent.forEach((s) => { const k = klass(s.id); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(s); });
+    $('absent-classes').innerHTML = [...groups.keys()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).map((k) =>
+      '<div class="class-card"><div class="class-card__h">' + k + '<span>' + groups.get(k).length + '명</span></div><div class="chips">'
+      + groups.get(k).map((s) => '<button type="button" class="chip-btn" data-id="' + s.id + '">' + esc(s.name) + '<small>' + Number(s.id.slice(3)) + '번</small></button>').join('')
+      + '</div></div>').join('');
+    $('extra-list').innerHTML = c.extra.length
+      ? c.extra.map((s) => '<button type="button" class="chip-btn" data-id="' + s.id + '" data-view="1">' + esc(s.name) + '<small>' + Core.seatOf(c.st, s.id) + '번</small></button>').join('')
+      : '<p class="empty">없어요</p>';
   }
   $('t-absent').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-id]');
@@ -293,37 +269,36 @@
     startAssign(b.dataset.id);
   });
 
-  /* 기록과 통계 */
-  function renderStats(s, now) {
-    const st = s.st;
+  /* 기록 */
+  function renderStats(c, now) {
+    const st = c.st;
     const set = st.settings;
-    const start = toMin(set.nightStart);
     const nowM = now.getHours() * 60 + now.getMinutes();
     const assigns = st.log.filter((l) => l.type === 'assign');
-    /* 배정이 있으면 첫 배정부터 지금까지, 없으면 야자 시작부터 한 시간 */
-    let from = start, to = start + 60;
+    let from = toMin(set.nightStart), to = from + 60;
     if (assigns.length) {
       const ms = assigns.map((l) => { const d = new Date(l.at); return d.getHours() * 60 + d.getMinutes(); });
       from = Math.floor(Math.min(...ms) / 10) * 10;
-      to = Math.max(Math.max(...ms) + 10, Math.min(nowM + 10, toMin(set.nightEnd)));
-      to = Math.min(to, from + 6 * 60);
+      to = Math.min(Math.max(Math.max(...ms) + 10, Math.min(nowM + 10, toMin(set.nightEnd))), from + 6 * 60);
     }
     const buckets = [];
     for (let m = Math.floor(from / 10) * 10; m < to; m += 10) buckets.push({ m, n: 0 });
     assigns.forEach((l) => { const d = new Date(l.at); const m = d.getHours() * 60 + d.getMinutes(); const b = buckets.find((x) => m >= x.m && m < x.m + 10); if (b) b.n += 1; });
     const max = Math.max(1, ...buckets.map((b) => b.n));
     const lab = (m) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
-    $('timeline').innerHTML = buckets.map((b) => '<div class="bars__col" title="' + lab(b.m) + ' ' + b.n + '명"><span class="bars__n">' + (b.n || '') + '</span><div class="bars__bar" style="height:' + (b.n / max * 100) + '%"></div><span class="bars__t">' + (b.m % 30 === 0 ? lab(b.m) : '') + '</span></div>').join('');
+    $('timeline').innerHTML = buckets.map((b) => '<div class="bars__col"><span class="bars__n">' + (b.n || '') + '</span><div class="bars__bar' + (b.n ? '' : ' is-zero') + '" style="height:' + (b.n / max * 100) + '%"></div><span class="bars__t">' + (b.m % 30 === 0 ? lab(b.m) : '') + '</span></div>').join('');
 
     const cls = new Map();
-    s.night.forEach((stu) => { const k = classKey(stu.id); if (!cls.has(k)) cls.set(k, { n: 0, in: 0 }); const c = cls.get(k); c.n += 1; if (s.seatedIds.has(stu.id)) c.in += 1; });
-    const ck = [...cls.keys()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-    $('class-rates').innerHTML = ck.map((k) => { const c = cls.get(k); const r = Math.round(c.in / c.n * 100); const [g, n] = k.split('-'); return '<tr><td>' + g + '-' + n + '</td><td>' + c.n + '</td><td>' + c.in + '</td><td class="w-bar"><div class="rate"><div class="rate__fill" style="width:' + r + '%"></div></div><span class="rate__n">' + r + '%</span></td></tr>'; }).join('');
+    c.night.forEach((s) => { const k = klass(s.id); if (!cls.has(k)) cls.set(k, { n: 0, came: 0 }); const x = cls.get(k); x.n += 1; if (c.seated.has(s.id)) x.came += 1; });
+    $('class-rates').innerHTML = [...cls.keys()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).map((k) => {
+      const x = cls.get(k);
+      return '<li><span>' + k.replace('학년 ', '-').replace('반', '') + '반</span><div class="rates__bar"><span style="width:' + (x.came / x.n * 100) + '%"></span></div><span class="rates__n">' + x.came + ' / ' + x.n + '명</span></li>';
+    }).join('');
 
     const rows = st.log.filter((l) => logFilter === 'all' || l.type === logFilter);
     $('log').innerHTML = rows.length
-      ? rows.map((l) => '<tr><td>' + fmtTime(l.at) + '</td><td><span class="tag tag--' + l.type + '">' + typeName[l.type] + '</span></td><td>' + l.id + '</td><td>' + esc(l.name) + '</td><td>' + (l.type === 'move' && l.from ? l.from + ' → ' : '') + l.seat + '</td><td>' + (l.by === 'teacher' ? '감독' : '키오스크') + '</td></tr>').join('')
-      : '<tr><td colspan="6">기록 없음</td></tr>';
+      ? rows.map((l) => '<li><time>' + hm(l.at) + '</time><span><b>' + esc(l.name) + '</b><small>' + l.id + '</small> ' + logText(l).replace(' (감독)', '') + '</span><span class="by">' + (l.by === 'teacher' ? '감독' : '키오스크') + '</span></li>').join('')
+      : '<li><span></span><span class="empty">기록이 없어요</span></li>';
   }
   $('log-filter').addEventListener('click', (e) => {
     const b = e.target.closest('button');
@@ -356,13 +331,13 @@
     };
     const np = $('f-pin').value.trim();
     if (np) {
-      if (!/^\d{4,8}$/.test(np)) { toast('PIN은 숫자 4~8자리', true); return; }
+      if (!/^\d{4,8}$/.test(np)) { toast('PIN은 숫자 4~8자리로 정해 주세요'); return; }
       settings.pin = np;
     }
-    const res = await store.dispatch({ type: 'settings', settings, pin });
-    if (!res.ok) { toast(res.error, true); return; }
+    const res = await adminAct({ type: 'settings', settings });
+    if (!res.ok) { toast(res.error); return; }
     if (np) { pin = np; try { sessionStorage.setItem(PIN_KEY, pin); } catch (e) {} }
-    toast('설정 저장 완료');
+    toast('저장했어요');
     fillSettings();
   });
 
@@ -371,10 +346,10 @@
     e.target.value = '';
     if (!f) return;
     const roster = Core.parseRosterCsv(await f.text());
-    if (!roster.length) { toast('읽을 수 있는 학생 없음, 형식 확인', true); return; }
-    if (!(await ask('명단 교체', roster.length + '명으로 교체. 명단에 없는 학생의 좌석은 비워짐.', '교체'))) return;
-    const res = await store.dispatch({ type: 'roster', roster, pin });
-    toast(res.ok ? '명단 교체 완료' : res.error, !res.ok);
+    if (!roster.length) { toast('읽을 수 있는 학생이 없어요. 파일 형식을 확인해 주세요'); return; }
+    if (!(await ask(roster.length + '명으로 명단을 바꿀까요?', '새 명단에 없는 학생의 자리는 비워져요', '바꿀게요'))) return;
+    const res = await adminAct({ type: 'roster', roster });
+    toast(res.ok ? '명단을 바꿨어요' : res.error);
   });
 
   function download(name, text) {
@@ -384,22 +359,23 @@
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
+  const typeName = { assign: '배정', move: '이동', release: '반납' };
   $('f-export').addEventListener('click', () => {
     download('명단.csv', '학번,이름,야자신청\n' + store.state.roster.map((s) => s.id + ',' + s.name + ',' + (s.night === false ? 0 : 1)).join('\n'));
   });
   $('f-log-export').addEventListener('click', () => {
     const st = store.state;
-    download('좌석기록_' + st.day + '.csv', '시각,구분,학번,이름,좌석,처리\n' + st.log.slice().reverse().map((l) => fmtTime(l.at) + ',' + typeName[l.type] + ',' + l.id + ',' + l.name + ',' + l.seat + ',' + (l.by === 'teacher' ? '감독' : '키오스크')).join('\n'));
+    download('좌석기록_' + st.day + '.csv', '시각,구분,학번,이름,좌석,처리\n' + st.log.slice().reverse().map((l) => hm(l.at) + ',' + typeName[l.type] + ',' + l.id + ',' + l.name + ',' + l.seat + ',' + (l.by === 'teacher' ? '감독' : '키오스크')).join('\n'));
   });
   $('f-demo-fill').addEventListener('click', async () => {
-    const res = await store.dispatch({ type: 'demo-fill', pin });
-    toast(res.ok ? res.count + '명 시연용 배정' : res.error, !res.ok);
+    const res = await adminAct({ type: 'demo-fill' });
+    toast(res.ok ? res.count + '명을 시연용으로 앉혔어요' : res.error);
   });
   $('f-reset').addEventListener('click', async () => {
-    if (!(await ask('모든 좌석 비우기', '오늘 배정과 기록이 모두 지워짐', '비우기', true))) return;
-    const res = await store.dispatch({ type: 'reset', pin });
+    if (!(await ask('모든 자리를 비울까요?', '오늘 배정과 기록이 모두 지워져요', '비울게요', true))) return;
+    const res = await adminAct({ type: 'reset' });
     selected = null; assigning = null;
-    toast(res.ok ? '모든 좌석 비움' : res.error, !res.ok);
+    toast(res.ok ? '모든 자리를 비웠어요' : res.error);
   });
 
   if (pin && (await checkPin(pin))) openMain();

@@ -1,10 +1,10 @@
 /* 한 번 열어 두면 와이파이가 끊겨도 키오스크가 뜨도록 정적 파일을 저장한다 */
-const CACHE = 'study-room-kiosk-v3';
+const CACHE = 'study-room-kiosk-v4';
 const FILES = [
   './', 'index.html', 'admin.html', 'me.html', 'cards.html', 'manifest.webmanifest',
   'css/style.css', 'css/admin.css',
-  'js/core.js', 'js/store.js', 'js/seatmap.js', 'js/scanner.js', 'js/kiosk.js', 'js/admin.js',
-  'vendor/zxing.min.js', 'vendor/fonts/PretendardVariable.woff2', 'vendor/qrcode.js', 'vendor/jsbarcode.min.js',
+  'js/core.js', 'js/store.js', 'js/seatmap.js', 'js/scanner.js', 'js/kiosk.js', 'js/admin.js', 'js/code128.js',
+  'vendor/zxing.min.js', 'vendor/fonts/PretendardVariable.woff2', 'vendor/qrcode.js',
   'data/layout.json', 'data/roster.json', 'icon.svg'
 ];
 self.addEventListener('install', (e) => {

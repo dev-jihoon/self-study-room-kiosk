@@ -108,7 +108,7 @@ async function handler(req, res) {
     if (p === '/api/action' && req.method === 'POST') {
       const action = await readBody(req);
       if ((ADMIN_TYPES.has(action.type) || action.byTeacher) && String(action.pin || '') !== state.settings.pin) {
-        return send(res, 200, { result: { ok: false, error: 'PIN 불일치' }, state: publicState() });
+        return send(res, 200, { result: { ok: false, error: 'PIN이 맞지 않아요' }, state: publicState() });
       }
       const before = state.events.length;
       const result = Core.apply(state, layout, action);

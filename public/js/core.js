@@ -79,7 +79,7 @@
   }
 
   function message(name, seat, d) {
-    return '[자기주도학습실] ' + name + ' ' + seat + '번 좌석 배정 (' + hhmm(d) + ')';
+    return '[자기주도학습실] ' + name + '님, 오늘 야자 자리는 ' + seat + '번이에요. (' + hhmm(d) + ' 배정)';
   }
 
   function pushLog(state, type, student, seat, d, by, from) {
@@ -100,13 +100,13 @@
 
     switch (action.type) {
       case 'assign': {
-        if (!action.byTeacher && !kioskOpen(state, d)) return { ok: false, error: '야자 시간(' + state.settings.nightStart + '~' + state.settings.nightEnd + ')에만 배정 가능' };
+        if (!action.byTeacher && !kioskOpen(state, d)) return { ok: false, error: '지금은 야자 시간이 아니에요' };
         const st = findStudent(state, action.id);
-        if (!st) return { ok: false, error: '등록되지 않은 학번' };
+        if (!st) return { ok: false, error: '등록되지 않은 학번이에요' };
         const seat = Number(action.seat);
-        if (!valid.has(seat)) return { ok: false, error: '없는 좌석' };
+        if (!valid.has(seat)) return { ok: false, error: '없는 자리예요' };
         const cur = state.seats[seat];
-        if (cur && cur.id !== st.id) return { ok: false, error: seat + '번은 사용 중' };
+        if (cur && cur.id !== st.id) return { ok: false, error: seat + '번은 이미 누가 앉아 있어요' };
         const prev = seatOf(state, st.id);
         if (prev === seat) return { ok: true, seat, student: st, unchanged: true };
         if (prev !== null) delete state.seats[prev];
@@ -116,9 +116,9 @@
       }
       case 'release': {
         const st = findStudent(state, action.id);
-        if (!st) return { ok: false, error: '등록되지 않은 학번' };
+        if (!st) return { ok: false, error: '등록되지 않은 학번이에요' };
         const prev = seatOf(state, st.id);
-        if (prev === null) return { ok: false, error: '배정된 좌석 없음' };
+        if (prev === null) return { ok: false, error: '배정된 자리가 없어요' };
         delete state.seats[prev];
         pushLog(state, 'release', st, prev, d, action.byTeacher ? 'teacher' : 'kiosk');
         return { ok: true, seat: prev, student: st };
@@ -154,14 +154,14 @@
         return { ok: true };
       }
       case 'roster': {
-        if (!Array.isArray(action.roster)) return { ok: false, error: '명단 형식 오류' };
+        if (!Array.isArray(action.roster)) return { ok: false, error: '명단 형식이 맞지 않아요' };
         state.roster = action.roster.map((s) => ({ id: String(s.id), name: String(s.name), night: s.night !== false }));
         const ids = new Set(state.roster.map((s) => s.id));
         for (const k in state.seats) if (!ids.has(state.seats[k].id)) delete state.seats[k];
         return { ok: true };
       }
       default:
-        return { ok: false, error: '알 수 없는 요청' };
+        return { ok: false, error: '알 수 없는 요청이에요' };
     }
   }
 

@@ -9,147 +9,141 @@
 </head>
 <body class="admin">
 <header class="topbar">
-  <div class="topbar__title">감독 화면</div>
+  <div class="topbar__title">자기주도학습실 감독</div>
   <div class="topbar__right">
-    <span id="mode" class="badge badge--demo"></span>
     <span id="today" class="topbar__date"></span>
     <span id="clock" class="topbar__clock"></span>
-    <a class="btn btn--small" href="index.html">키오스크</a>
+    <a class="btn btn--small" href="index.html">키오스크로</a>
   </div>
 </header>
 
 <section class="gate" id="gate">
-  <h2>감독 PIN</h2>
-  <input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="8">
+  <h2>감독 PIN을 입력해 주세요</h2>
+  <input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="8" aria-label="감독 PIN">
   <button class="btn btn--primary" id="pin-ok" type="button">확인</button>
   <p class="gate__hint" id="gate-hint"></p>
 </section>
 
-<main class="admin-main" id="main" hidden>
-  <div class="overview">
-    <div class="overview__state" id="run-state"></div>
-    <div class="stats">
-      <div class="stat"><span>야자 신청</span><b id="st-night"></b></div>
-      <div class="stat"><span>입실</span><b id="st-in"></b><em id="st-rate"></em></div>
-      <div class="stat stat--warn"><span>미입실</span><b id="st-absent"></b></div>
-      <div class="stat"><span>신청 외 입실</span><b id="st-extra"></b></div>
-      <div class="stat"><span>빈자리</span><b id="st-free"></b><em id="st-total"></em></div>
-    </div>
+<main class="wrap" id="main" hidden>
+  <section class="card summary">
+    <p class="summary__state" id="run-state"></p>
+    <h1 class="summary__title" id="sum-title"></h1>
     <div class="meter"><div class="meter__fill" id="meter"></div></div>
-  </div>
+    <div class="summary__links">
+      <button type="button" class="link" id="go-absent"></button>
+      <span class="summary__extra" id="sum-extra"></span>
+    </div>
+  </section>
 
-  <nav class="tabs" id="tabs">
-    <button data-tab="map" class="is-on" type="button">좌석 현황</button>
-    <button data-tab="absent" type="button">미입실 <span class="tabs__n" id="tab-absent-n"></span></button>
-    <button data-tab="stats" type="button">기록과 통계</button>
+  <nav class="seg-tabs" id="tabs">
+    <button data-tab="map" class="is-on" type="button">좌석</button>
+    <button data-tab="absent" type="button">안 온 학생</button>
+    <button data-tab="stats" type="button">기록</button>
     <button data-tab="settings" type="button">설정</button>
   </nav>
 
-  <!-- 좌석 현황 -->
+  <!-- 좌석 -->
   <section class="tab is-on" id="t-map">
     <div class="board">
-      <div class="board__map">
-        <div class="board__bar">
-          <div class="legend">
-            <span><i class="l-g1"></i>1학년</span>
-            <span><i class="l-g2"></i>2학년</span>
-            <span><i class="l-g3"></i>3학년</span>
-            <span><i class="l-new"></i>최근 5분 배정</span>
-          </div>
-          <div class="assign-hint" id="assign-hint" hidden>
-            <span id="assign-hint-text"></span>
-            <button class="btn btn--small" id="assign-cancel" type="button">취소</button>
-          </div>
+      <div class="card board__map">
+        <div class="assign-bar" id="assign-bar" hidden>
+          <span id="assign-text"></span>
+          <button class="btn btn--small" id="assign-cancel" type="button">취소</button>
         </div>
         <div class="board__canvas" id="map"></div>
       </div>
-
-      <aside class="side">
-        <div class="side__block">
-          <input class="search" id="search" type="search" placeholder="이름 또는 학번 검색" autocomplete="off">
-          <ul class="search-results" id="search-results"></ul>
-        </div>
-
-        <div class="side__block detail" id="detail">
-          <p class="detail__empty">배치도에서 좌석을 누르거나 학생을 검색하면 여기에 자세한 정보가 나옴</p>
-        </div>
-
-        <div class="side__block">
-          <h3 class="side__h">최근 활동</h3>
+      <aside class="card side">
+        <input class="search" id="search" type="search" placeholder="이름이나 학번으로 찾기" autocomplete="off" aria-label="학생 찾기">
+        <ul class="results" id="results"></ul>
+        <div id="detail"></div>
+        <div id="feed-box">
+          <h3 class="side__h">방금 들어온 학생</h3>
           <ol class="feed" id="feed"></ol>
         </div>
       </aside>
     </div>
   </section>
 
-  <!-- 미입실 -->
+  <!-- 안 온 학생 -->
   <section class="tab" id="t-absent">
-    <p class="note">야자 신청 명단 중 아직 배정받지 않은 학생. 이름을 누르면 감독이 직접 자리를 지정할 수 있음.</p>
+    <div class="tab__head">
+      <h2 id="absent-title"></h2>
+      <p>이름을 누르면 자리를 직접 정해 줄 수 있어요</p>
+    </div>
     <div class="classes" id="absent-classes"></div>
-    <h3>신청하지 않았지만 입실</h3>
-    <div class="chips" id="extra-list"></div>
+    <div class="tab__head tab__head--sub">
+      <h2>신청 안 하고 온 학생</h2>
+    </div>
+    <div class="card"><div class="chips" id="extra-list"></div></div>
   </section>
 
-  <!-- 기록과 통계 -->
+  <!-- 기록 -->
   <section class="tab" id="t-stats">
     <div class="stats-grid">
-      <div class="panel">
-        <h3 class="panel__h">10분 단위 입실</h3>
+      <div class="card">
+        <h3 class="card__h">시간대별로 들어온 학생</h3>
         <div class="bars" id="timeline"></div>
       </div>
-      <div class="panel">
-        <h3 class="panel__h">반별 입실률</h3>
-        <table class="tbl tbl--compact"><thead><tr><th>반</th><th>신청</th><th>입실</th><th class="w-bar">입실률</th></tr></thead><tbody id="class-rates"></tbody></table>
+      <div class="card">
+        <h3 class="card__h">반별 출석</h3>
+        <ul class="rates" id="class-rates"></ul>
       </div>
     </div>
-    <div class="panel">
-      <div class="panel__head">
-        <h3 class="panel__h">오늘 기록</h3>
-        <div class="seg" id="log-filter">
+    <div class="card">
+      <div class="card__head">
+        <h3 class="card__h">오늘 기록</h3>
+        <div class="pills" id="log-filter">
           <button data-f="all" class="is-on" type="button">전체</button>
           <button data-f="assign" type="button">배정</button>
           <button data-f="move" type="button">이동</button>
           <button data-f="release" type="button">반납</button>
         </div>
       </div>
-      <table class="tbl"><thead><tr><th>시각</th><th>구분</th><th>학번</th><th>이름</th><th>좌석</th><th>처리</th></tr></thead><tbody id="log"></tbody></table>
+      <ul class="log" id="log"></ul>
     </div>
   </section>
 
   <!-- 설정 -->
   <section class="tab" id="t-settings">
-    <div class="form">
-      <label>야자 시작<input type="time" id="f-start"></label>
-      <label>야자 종료<input type="time" id="f-end"></label>
-      <label class="check"><input type="checkbox" id="f-demo">시연 모드 (시간과 상관없이 배정 허용)</label>
-      <label>알림 웹훅 주소<input type="url" id="f-hook" placeholder="https://… (배정마다 JSON 전송)"></label>
-      <label>내 자리 확인 주소<input type="url" id="f-public" placeholder="비워 두면 현재 주소 사용"></label>
-      <label>새 감독 PIN<input type="password" id="f-pin" inputmode="numeric" placeholder="바꿀 때만 입력"></label>
-      <div class="form__row"><button class="btn btn--primary btn--small" id="f-save" type="button">설정 저장</button></div>
+    <div class="card form">
+      <h3 class="card__h">운영</h3>
+      <div class="row2">
+        <label for="f-start">야자 시작 시각<input type="time" id="f-start"></label>
+        <label for="f-end">야자 끝나는 시각<input type="time" id="f-end"></label>
+      </div>
+      <label class="toggle" for="f-demo"><span>시간과 상관없이 배정받게 하기<small>시연할 때 켜 두세요</small></span><input type="checkbox" id="f-demo"></label>
+      <label for="f-hook">배정 알림을 보낼 주소<input type="url" id="f-hook" placeholder="https://"></label>
+      <label for="f-public">QR로 열릴 내 자리 주소<input type="url" id="f-public" placeholder="비워 두면 지금 주소를 써요"></label>
+      <label for="f-pin">감독 PIN 바꾸기<input type="password" id="f-pin" inputmode="numeric" placeholder="바꿀 때만 입력"></label>
+      <button class="btn btn--primary" id="f-save" type="button">저장하기</button>
     </div>
 
-    <h3>명단</h3>
-    <p class="note">CSV 형식: 학번,이름,야자신청(1 또는 0). 현재 명단 <b id="roster-count"></b>명.</p>
-    <div class="form__row">
-      <label class="btn btn--small file">CSV 불러오기<input type="file" id="f-csv" accept=".csv,text/csv"></label>
-      <button class="btn btn--small" id="f-export" type="button">명단 내보내기</button>
-      <a class="btn btn--small" href="cards.html" target="_blank">시연용 카드 인쇄</a>
+    <div class="card form">
+      <h3 class="card__h">학생 명단 <span class="muted" id="roster-count"></span></h3>
+      <p class="muted">CSV 파일로 바꿀 수 있어요. 한 줄에 학번,이름,야자신청(1 또는 0)</p>
+      <div class="btn-wrap">
+        <label class="btn file" for="f-csv">명단 불러오기<input type="file" id="f-csv" accept=".csv,text/csv"></label>
+        <button class="btn" id="f-export" type="button">명단 내려받기</button>
+        <a class="btn" href="cards.html" target="_blank">시연용 카드 만들기</a>
+      </div>
     </div>
 
-    <h3>오늘 좌석</h3>
-    <div class="form__row">
-      <button class="btn btn--small" id="f-log-export" type="button">오늘 기록 내보내기</button>
-      <button class="btn btn--small" id="f-demo-fill" type="button">시연용 배정 채우기</button>
-      <button class="btn btn--small btn--danger" id="f-reset" type="button">모든 좌석 비우기</button>
+    <div class="card form">
+      <h3 class="card__h">오늘 자리</h3>
+      <div class="btn-wrap">
+        <button class="btn" id="f-log-export" type="button">오늘 기록 내려받기</button>
+        <button class="btn" id="f-demo-fill" type="button">시연용으로 자리 채우기</button>
+        <button class="btn btn--danger" id="f-reset" type="button">모든 자리 비우기</button>
+      </div>
     </div>
   </section>
 </main>
 
-<div class="modal-wrap" id="confirm">
-  <div class="modal">
+<div class="sheet-wrap" id="confirm">
+  <div class="sheet">
     <h3 id="confirm-title"></h3>
     <p id="confirm-body"></p>
-    <div class="actions">
+    <div class="btn-row">
       <button class="btn" id="confirm-no" type="button">취소</button>
       <button class="btn btn--primary" id="confirm-yes" type="button">확인</button>
     </div>

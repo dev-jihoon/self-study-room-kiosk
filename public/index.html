@@ -10,100 +10,87 @@
 </head>
 <body>
 <header class="topbar">
-  <div class="topbar__title" id="title">자기주도학습실 좌석 배정</div>
-  <div class="topbar__right">
-    <span id="status" class="badge"></span>
-    <span id="clock" class="topbar__clock"></span>
-  </div>
+  <div class="topbar__title" id="title">자기주도학습실</div>
+  <div class="topbar__right"><span id="clock" class="topbar__clock"></span></div>
 </header>
 
-<!-- 대기 -->
+<!-- 처음 화면 -->
 <section class="screen idle is-active" id="s-idle">
-  <div class="idle__col">
-    <div class="idle__label">학생증</div>
-    <button class="scan-launch" id="scan-open" type="button">
-      <span class="scan-launch__bars" aria-hidden="true"></span>
-      <span class="scan-launch__text">바코드 인식</span>
-      <span class="scan-launch__sub">누르면 카메라가 켜짐</span>
-    </button>
+  <div class="idle__main">
+    <h1 id="idle-title">학생증을<br>찍어 주세요</h1>
+    <p id="idle-sub">바코드가 카메라에 보이게 대 주세요</p>
+    <button class="btn btn--primary" id="scan-open" type="button">카메라 켜기</button>
   </div>
-  <div class="idle__col">
-    <div class="idle__label">학번</div>
-    <div class="entry__input is-empty" id="idbox">학번 5자리</div>
+  <div class="idle__side">
+    <div class="idle__side-title">학번으로 할게요</div>
+    <div class="idbox is-empty" id="idbox">학번 5자리</div>
     <div class="numpad" id="numpad">
       <button>1</button><button>2</button><button>3</button>
       <button>4</button><button>5</button><button>6</button>
       <button>7</button><button>8</button><button>9</button>
-      <button data-k="del">지움</button><button>0</button><button data-k="ok" class="key-ok">확인</button>
+      <button data-k="del" class="key-del">지우기</button><button>0</button><button data-k="ok" class="key-ok" disabled>다음</button>
     </div>
   </div>
 </section>
 
-<!-- 바코드 인식 -->
+<!-- 바코드 찍기 -->
 <section class="screen scan" id="s-scan">
+  <h2>바코드를 네모 안에 맞춰 주세요</h2>
   <div class="scan__view" id="camera">
     <video id="video" playsinline muted></video>
     <div class="scan__frame"></div>
   </div>
-  <p class="scan__msg" id="scan-msg">학생증 바코드를 네모 안에</p>
-  <div class="actions">
-    <button class="btn" id="scan-flip" type="button">카메라 전환</button>
-    <button class="btn btn--primary" id="scan-cancel" type="button">취소</button>
+  <p class="scan__msg" id="scan-msg"></p>
+  <div class="btn-row">
+    <button class="btn" id="scan-flip" type="button">카메라 바꾸기</button>
+    <button class="btn" id="scan-cancel" type="button">취소</button>
   </div>
 </section>
 
-<!-- 학생 확인 -->
+<!-- 이미 자리가 있을 때, 운영 시간이 아닐 때 -->
 <section class="screen center" id="s-who">
-  <div class="who__id" id="who-id"></div>
-  <h2 id="who-name"></h2>
-  <p id="who-msg"></p>
-  <div class="actions" id="who-actions"></div>
+  <div class="center__inner">
+    <h2 id="who-title"></h2>
+    <p id="who-sub"></p>
+    <div class="btn-row" id="who-actions"></div>
+    <button class="btn btn--text" id="who-home" type="button">처음으로</button>
+  </div>
 </section>
 
-<!-- 자리 선택 -->
+<!-- 자리 고르기 -->
 <section class="screen pick" id="s-pick">
   <div class="pick__head">
-    <div class="pick__title">
-      <h2>자리 선택</h2>
-      <span class="chip" id="pick-who"></span>
+    <div>
+      <h2 id="pick-title"></h2>
+      <p>회색 자리는 이미 누가 앉아 있어요</p>
     </div>
-    <div class="legend">
-      <span><i class="l-free"></i>빈자리</span>
-      <span><i class="l-taken"></i>사용 중</span>
-      <span><i class="l-mine"></i>현재 자리</span>
-      <button class="btn btn--small" id="pick-cancel" type="button">처음으로</button>
-    </div>
+    <button class="btn btn--text" id="pick-cancel" type="button">처음으로</button>
   </div>
   <div class="pick__body" id="pick-map"></div>
 </section>
 
-<!-- 완료 -->
+<!-- 끝 -->
 <section class="screen center" id="s-done">
-  <p class="done__who" id="done-name"></p>
-  <div class="done__row">
-    <div class="done__seat"><span id="done-seat"></span><small>번</small></div>
-    <div>
+  <div class="center__inner">
+    <div class="check" aria-hidden="true"></div>
+    <h2 id="done-title"></h2>
+    <p id="done-sub" hidden></p>
+    <div class="done__qr" id="done-qr-box">
       <div class="qr" id="done-qr"></div>
-      <div class="qr__cap">QR로 내 자리 확인</div>
+      <p>휴대폰 카메라로 찍으면<br>내 자리를 다시 볼 수 있어요</p>
     </div>
+    <div class="btn-row"><button class="btn btn--primary" id="done-ok" type="button">확인</button></div>
+    <div class="countdown" id="done-count"></div>
   </div>
-  <div class="actions"><button class="btn btn--primary" id="done-ok" type="button">확인</button></div>
-  <div class="countdown" id="done-count"></div>
 </section>
 
-<!-- 안내 -->
-<section class="screen center" id="s-msg">
-  <h2 id="msg-title"></h2>
-  <p id="msg-body"></p>
-</section>
-
-<div class="modal-wrap" id="modal">
-  <div class="modal">
-    <h3 id="modal-title"></h3>
-    <p id="modal-body"></p>
-    <div class="actions">
-      <button class="btn" id="modal-no" type="button">취소</button>
-      <button class="btn btn--primary" id="modal-yes" type="button">배정</button>
+<div class="sheet-wrap" id="sheet">
+  <div class="sheet">
+    <h3 id="sheet-title"></h3>
+    <p id="sheet-sub"></p>
+    <div class="btn-row">
+      <button class="btn" id="sheet-no" type="button">다른 자리</button>
+      <button class="btn btn--primary" id="sheet-yes" type="button">앉을게요</button>
     </div>
   </div>
 </div>

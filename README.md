@@ -62,7 +62,8 @@ public/
   js/scanner.js    카메라 바코드 인식 (BarcodeDetector, 없으면 ZXing)
   data/layout.json 좌석 배치 (107석, 기둥 2개)
   data/roster.json 시연용 명단 48명 (영어 이름)
-  vendor/          ZXing, qrcode-generator, JsBarcode (MIT), Pretendard 글꼴 (SIL OFL 1.1)
+  vendor/          ZXing, qrcode-generator (MIT), Pretendard 글꼴 (SIL OFL 1.1)
+  js/code128.js    시연용 카드 바코드 (Code 128)
 server/server.js   서버 모드
 Caddyfile          HTTPS 앞단 (deploy.sh가 주소를 채움)
 deploy.sh          OCI, UNO Q 배포 스크립트
