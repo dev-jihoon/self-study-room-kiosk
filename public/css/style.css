@@ -1,4 +1,10 @@
-@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
+/* Pretendard를 함께 넣어 와이파이 없이도 같은 글꼴로 보이게 한다 (SIL OFL) */
+@font-face {
+  font-family: "Pretendard";
+  src: url("../vendor/fonts/PretendardVariable.woff2") format("woff2-variations");
+  font-weight: 45 920;
+  font-display: swap;
+}
 
 :root {
   --bg: #f3f4f6;
