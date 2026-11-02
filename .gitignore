@@ -1,5 +1,5 @@
 node_modules/
-data/
+/data/
 certs/
 .DS_Store
 .env

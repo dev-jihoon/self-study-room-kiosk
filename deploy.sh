@@ -36,10 +36,12 @@ if [ "$MODE" = "npm" ]; then
   if [ -z "$NET" ]; then
     NPM_ID=$(docker ps --format '{{.ID}} {{.Image}}' | grep -i 'nginx-proxy-manager' | head -n1 | cut -d' ' -f1)
     [ -n "$NPM_ID" ] || { echo "실행 중인 Nginx Proxy Manager 컨테이너를 찾지 못했습니다. ./deploy.sh npm <도커 네트워크 이름> 처럼 넣어 주세요."; exit 1; }
-    # NPM 컨테이너의 기본 네트워크 (compose로 띄웠으면 *_default, 아니면 첫 번째)
-    NETS=$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' "$NPM_ID")
-    NET=$(echo "$NETS" | tr ' ' '\n' | grep '_default$' | head -n1)
-    [ -n "$NET" ] || NET=$(echo "$NETS" | awk '{print $1}')
+    # NPM 컨테이너의 기본 네트워크 (compose로 띄웠으면 *_default, 아니면 bridge가 아닌 첫 번째)
+    # 도커 기본 bridge에서는 컨테이너 이름으로 찾아갈 수 없어서 쓰지 않는다
+    NETS=$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' "$NPM_ID" | tr ' ' '\n' | grep -v '^$')
+    NET=$(echo "$NETS" | grep '_default$' | head -n1)
+    [ -n "$NET" ] || NET=$(echo "$NETS" | grep -vx 'bridge\|host\|none' | head -n1)
+    [ -n "$NET" ] || { echo "NPM 컨테이너가 기본 bridge 네트워크에만 있습니다. docker network create npm-net && docker network connect npm-net <NPM 컨테이너> 후 ./deploy.sh npm npm-net 으로 실행하세요."; exit 1; }
   fi
   docker network inspect "$NET" >/dev/null 2>&1 || { echo "도커 네트워크 '$NET'이 없습니다."; exit 1; }
   setenv NPM_NETWORK "$NET"
