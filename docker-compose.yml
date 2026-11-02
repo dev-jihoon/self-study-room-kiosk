@@ -26,6 +26,7 @@ services:
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
       CADDY_TLS: ${CADDY_TLS:-}
+      DEFAULT_SNI: ${DEFAULT_SNI:-localhost}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

@@ -62,8 +62,8 @@ public/
   js/store.js      서버가 있으면 api/, 없으면 브라우저 저장소
   js/seatmap.js    좌석 배치도 그리기
   js/scanner.js    카메라 바코드 인식 (BarcodeDetector, 없으면 ZXing)
-  data/layout.json 좌석 배치 (107석, 기둥 2개)
-  data/roster.json 시연용 명단 48명 (영어 이름)
+  data/layout.json 좌석 배치 (26학년도 2차 좌석표 기준 107석, 11줄, 기둥 2개)
+  data/roster.json 시연용 명단 1080명 (학번 10101~31036, 3학년 10반 36명, 영어 이름, 야자 신청 102명)
   vendor/          ZXing, qrcode-generator (MIT), Pretendard 글꼴 (SIL OFL 1.1)
   js/code128.js    시연용 카드 바코드 (Code 128)
 server/server.js   서버 모드

@@ -1,5 +1,11 @@
 # SITE_ADDRESS 예: 158-180-1-23.sslip.io (OCI, 인증서 자동 발급) 또는 https://192.168.0.23 (학교 와이파이 안)
 # CADDY_TLS 예: 비워 두면 Let's Encrypt, "tls internal"이면 자체 인증서
+# DEFAULT_SNI: IP로 접속하면 브라우저가 SNI를 보내지 않는다. 도커 안에서는 접속 주소도 컨테이너 IP라
+#   맞는 인증서를 못 찾아 TLS 에러가 나므로, 이때 쓸 인증서 이름(서버 IP)을 정해 둔다 (deploy.sh lan이 채움)
+{
+	default_sni {$DEFAULT_SNI:localhost}
+}
+
 {$SITE_ADDRESS} {
 	{$CADDY_TLS}
 	encode gzip

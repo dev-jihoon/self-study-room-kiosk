@@ -73,6 +73,7 @@ if [ "$MODE" = "oci" ]; then
   HOST="$(echo "$IP" | tr . -).sslip.io"
   setenv SITE_ADDRESS "$HOST"
   setenv CADDY_TLS ""
+  setenv DEFAULT_SNI "$HOST"
   URL="https://$HOST"
   if [ "${2:-}" = "--open-firewall" ] && command -v iptables >/dev/null 2>&1; then
     for p in 80 443; do
@@ -86,6 +87,7 @@ else
   [ -n "$IP" ] || { echo "IP를 알아내지 못했습니다. ./deploy.sh lan 192.168.0.23 처럼 넣어 주세요."; exit 1; }
   setenv SITE_ADDRESS "https://$IP"
   setenv CADDY_TLS "\"tls internal\""
+  setenv DEFAULT_SNI "$IP"
   URL="https://$IP"
 fi
 
