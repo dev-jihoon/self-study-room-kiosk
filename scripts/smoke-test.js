@@ -52,6 +52,12 @@ async function post(p, body) {
 
     const page = await fetch(base + '/index.html');
     assert.strictEqual(page.status, 200);
+    const tag = page.headers.get('etag');
+    assert.ok(tag, '정적 파일 ETag');
+    assert.strictEqual((await fetch(base + '/index.html', { headers: { 'If-None-Match': tag } })).status, 304, '바뀌지 않은 파일은 304');
+    const s1 = await fetch(base + '/api/state');
+    assert.strictEqual(s1.headers.get('content-encoding'), 'gzip', '좌석 현황 gzip');
+    assert.strictEqual((await fetch(base + '/api/state', { headers: { 'If-None-Match': s1.headers.get('etag') } })).status, 304, '바뀌지 않은 좌석 현황은 304');
     console.log('모든 확인 통과');
   } finally {
     srv.kill();

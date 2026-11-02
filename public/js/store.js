@@ -57,8 +57,16 @@
     let state = initial;
     const subs = new Set();
     const set = (s) => { state = s; subs.forEach((f) => f(state)); };
+    let last = '';
+    /* 서버가 ETag로 304를 주면 브라우저가 저장본을 돌려준다. 내용이 같으면 다시 그리지 않는다 */
     async function refresh() {
-      try { set(await getJson('api/state')); } catch (e) {}
+      try {
+        const r = await fetch('api/state', { cache: 'no-cache' });
+        if (r.ok) {
+          const text = await r.text();
+          if (text !== last) { last = text; set(JSON.parse(text)); }
+        }
+      } catch (e) {}
       return state;
     }
     setInterval(refresh, 3000);

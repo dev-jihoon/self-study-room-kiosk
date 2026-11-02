@@ -2,6 +2,8 @@
 'use strict';
 const http = require('http');
 const https = require('https');
+const crypto = require('crypto');
+const zlib = require('zlib');
 const fs = require('fs');
 const path = require('path');
 const Core = require('../public/js/core.js');
@@ -80,10 +82,36 @@ function readBody(req) {
   });
 }
 
+/* 1KB 넘는 글자 응답은 gzip으로 줄여 보낸다 (태블릿 와이파이가 느릴 때를 위해) */
+function finish(res, code, headers, buf, compressible) {
+  const req = res.req;
+  if (compressible && buf.length > 1024 && /\bgzip\b/.test(req.headers['accept-encoding'] || '')) {
+    buf = zlib.gzipSync(buf);
+    headers['Content-Encoding'] = 'gzip';
+  }
+  headers.Vary = 'Accept-Encoding';
+  res.writeHead(code, headers);
+  res.end(req.method === 'HEAD' ? undefined : buf);
+}
+
+/* 바뀐 게 없으면 304만 돌려준다 */
+function notModified(res, etag) {
+  if (res.req.headers['if-none-match'] !== etag) return false;
+  res.writeHead(304, { ETag: etag, 'Cache-Control': 'no-cache' });
+  res.end();
+  return true;
+}
+
 function send(res, code, obj) {
-  const body = JSON.stringify(obj);
-  res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-  res.end(body);
+  finish(res, code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }, Buffer.from(JSON.stringify(obj)), true);
+}
+
+/* 좌석 현황은 3초마다 불러가므로 ETag를 붙여 바뀌지 않았으면 304로 끝낸다 */
+function sendState(res, obj) {
+  const buf = Buffer.from(JSON.stringify(obj));
+  const etag = '"' + crypto.createHash('sha1').update(buf).digest('base64url') + '"';
+  if (notModified(res, etag)) return;
+  finish(res, 200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache', ETag: etag }, buf, true);
 }
 
 const TYPES = {
@@ -96,10 +124,15 @@ function serveStatic(req, res, pathname) {
   if (p.endsWith('/')) p += 'index.html';
   const file = path.normalize(path.join(PUBLIC, p));
   if (!file.startsWith(PUBLIC)) { res.writeHead(403); res.end(); return; }
-  fs.readFile(file, (err, buf) => {
-    if (err) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end('없는 페이지입니다.'); return; }
-    res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
-    res.end(buf);
+  fs.stat(file, (err, st) => {
+    if (err || !st.isFile()) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end('없는 페이지입니다.'); return; }
+    const etag = '"' + st.size.toString(36) + '-' + Math.floor(st.mtimeMs).toString(36) + '"';
+    if (notModified(res, etag)) return;
+    fs.readFile(file, (err2, buf) => {
+      if (err2) { res.writeHead(500); res.end(); return; }
+      const ext = path.extname(file);
+      finish(res, 200, { 'Content-Type': TYPES[ext] || 'application/octet-stream', 'Cache-Control': 'no-cache', ETag: etag }, buf, ext !== '.woff2' && ext !== '.png');
+    });
   });
 }
 
@@ -108,7 +141,7 @@ async function handler(req, res) {
   const p = url.pathname;
   try {
     if (p === '/api/health') return send(res, 200, { ok: true });
-    if (p === '/api/state' && req.method === 'GET') return send(res, 200, publicState());
+    if (p === '/api/state' && req.method === 'GET') return sendState(res, publicState());
 
     if (p === '/api/login' && req.method === 'POST') {
       const b = await readBody(req);
