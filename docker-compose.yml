@@ -7,6 +7,7 @@ services:
     restart: unless-stopped
     environment:
       DATA_DIR: /data
+      TZ: ${TZ:-Asia/Seoul}
       ADMIN_PIN: ${ADMIN_PIN:-0000}
       DEMO_MODE: ${DEMO_MODE:-1}
       EVENTS_TOKEN: ${EVENTS_TOKEN:-}

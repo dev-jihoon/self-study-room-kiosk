@@ -23,7 +23,7 @@
 
 ## 다음 할 일 후보
 
-- OCI에서 deploy.sh npm 실제 실행 확인 (이 레포를 만든 세션에서는 Docker 데몬이 없어 compose와 deploy.sh를 실제로 실행해 보지 못함)
+- 갤럭시탭으로 OCI 주소(https://140-238-3-35.sslip.io) 카메라, 바코드, 배정, 감독 화면 확인 (deploy.sh npm과 Proxy Host 생성은 2026-11-02 OCI에서 실제로 확인함)
 - UNO Q에 Docker 올리고 태블릿에서 https 접속 확인
 - 카카오톡 봇(메신저봇)이 /api/events를 가져가 보내는 스크립트
 - 외출, 조퇴 상태 표시

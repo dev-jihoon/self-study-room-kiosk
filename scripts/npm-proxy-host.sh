@@ -28,8 +28,19 @@ TOKEN=$(curl -fsS -X POST "$NPM_URL/api/tokens" -H 'Content-Type: application/js
 [ -n "$TOKEN" ] || { echo "NPM 로그인에 실패했습니다. NPM_URL과 계정을 확인하세요."; exit 1; }
 AUTH="Authorization: Bearer $TOKEN"
 
-# 2. 이미 있으면 그대로 둔다
-if curl -fsS "$NPM_URL/api/nginx/proxy-hosts" -H "$AUTH" | grep -q "\"$KIOSK_DOMAIN\""; then
+# HTTPS 강제와 HTTP/2 켜기. NPM은 certificate_id "new"로 만들 때 이 두 값을 버려서 따로 한 번 더 넣는다
+force_https() {
+  curl -fsS -X PUT "$NPM_URL/api/nginx/proxy-hosts/$1" -H "$AUTH" -H 'Content-Type: application/json' \
+    -d '{"ssl_forced":true,"http2_support":true}' >/dev/null \
+    || echo "HTTPS 강제를 켜지 못했습니다. http로 들어와도 https로 넘어가지 않을 수 있습니다."
+}
+
+# 2. 이미 있으면 HTTPS 강제만 맞추고 그대로 둔다
+# 응답을 Proxy Host 하나씩 한 줄로 나눠 도메인이 맞는 것의 id를 찾는다
+HOST_ID=$(curl -fsS "$NPM_URL/api/nginx/proxy-hosts" -H "$AUTH" | sed 's/},{"id":/}\n{"id":/g' \
+  | grep "\"$KIOSK_DOMAIN\"" | sed -n 's/^\[\{0,1\}{"id":\([0-9]*\).*/\1/p' | head -n1)
+if [ -n "$HOST_ID" ]; then
+  force_https "$HOST_ID"
   echo "이미 $KIOSK_DOMAIN Proxy Host가 있습니다."
   echo "https://$KIOSK_DOMAIN/"
   exit 0
@@ -58,7 +69,9 @@ BODY=$(cat <<EOF
 EOF
 )
 RES=$(curl -sS -X POST "$NPM_URL/api/nginx/proxy-hosts" -H "$AUTH" -H 'Content-Type: application/json' -d "$BODY")
-if echo "$RES" | grep -q '"id"'; then
+HOST_ID=$(echo "$RES" | sed -n 's/^{"id":\([0-9]*\).*/\1/p')
+if [ -n "$HOST_ID" ]; then
+  force_https "$HOST_ID"
   echo "Proxy Host를 만들었습니다: https://$KIOSK_DOMAIN/"
 else
   echo "Proxy Host를 만들지 못했습니다. NPM 응답:"
