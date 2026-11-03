@@ -47,6 +47,9 @@
     if (Core.kioskOpen(st)) {
       $('idle-title').innerHTML = '학생증을<br>찍어 주세요';
       $('idle-sub').textContent = '바코드가 카메라에 보이게 대 주세요';
+    } else if (!Core.isNightDay(st)) {
+      $('idle-title').innerHTML = '오늘은 야자가<br>없는 날이에요';
+      $('idle-sub').textContent = '반납과 외출은 언제든 돼요';
     } else {
       $('idle-title').innerHTML = '지금은 야자 시간이<br>아니에요';
       $('idle-sub').textContent = st.settings.nightStart + '부터 자리를 받을 수 있어요. 반납은 언제든 돼요.';
@@ -109,11 +112,18 @@
   function renderWho(seat, open) {
     const acts = $('who-actions');
     acts.innerHTML = '';
-    if (seat !== null) {
+    acts.className = 'btn-col';
+    if (seat !== null && store.state.seats[seat].out) {
+      $('who-title').innerHTML = esc(current.name) + '님,<br>다녀왔어요?';
+      $('who-sub').textContent = seat + '번 자리는 그대로 있어요';
+      acts.appendChild(button('돌아왔어요', 'btn--primary', () => outBack('back', seat)));
+      acts.appendChild(button('반납하기', '', release));
+    } else if (seat !== null) {
       $('who-title').innerHTML = esc(current.name) + '님은 지금<br>' + seat + '번에 앉아 있어요';
       $('who-sub').textContent = '';
-      if (open) acts.appendChild(button('자리 바꾸기', '', () => { renderPick(); show('pick'); }));
       acts.appendChild(button('반납하기', 'btn--primary', release));
+      acts.appendChild(button('잠깐 나갈게요', '', () => outBack('out', seat)));
+      if (open) acts.appendChild(button('자리 바꾸기', '', () => { renderPick(); show('pick'); }));
     } else {
       $('who-title').innerHTML = '지금은 야자 시간이<br>아니에요';
       $('who-sub').textContent = store.state.settings.nightStart + '부터 자리를 받을 수 있어요';
@@ -195,6 +205,18 @@
     if (!res.ok) { toast(res.error); return; }
     $('done-title').textContent = res.seat + '번 자리를 반납했어요';
     $('done-sub').textContent = '오늘도 수고했어요';
+    $('done-sub').hidden = false;
+    $('done-qr-box').hidden = true;
+    show('done');
+    countdown(5);
+  }
+
+  /* 외출, 돌아옴: 자리는 그대로 둔다 */
+  async function outBack(type, seat) {
+    const res = await store.dispatch({ type, id: current.id });
+    if (!res.ok) { toast(res.error); return; }
+    $('done-title').textContent = type === 'out' ? '다녀오세요' : '어서 와요';
+    $('done-sub').textContent = type === 'out' ? seat + '번 자리는 그대로 둘게요' : seat + '번 자리 그대로예요';
     $('done-sub').hidden = false;
     $('done-qr-box').hidden = true;
     show('done');

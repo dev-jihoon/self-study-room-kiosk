@@ -7,6 +7,7 @@
 #   ./deploy.sh npm [네트워크]       Nginx Proxy Manager가 있는 서버. 좌석 서버만 띄우고 HTTPS는 NPM이 맡음
 #   ./deploy.sh stop                 내리기
 #   ./deploy.sh logs                 로그 보기
+#   ./deploy.sh reset-pin 1234       감독 PIN을 잊었을 때 새 PIN으로 정하기
 set -e
 cd "$(dirname "$0")"
 
@@ -15,6 +16,13 @@ elif command -v docker-compose >/dev/null 2>&1; then DC="docker-compose"
 else echo "Docker Compose가 없습니다. Docker를 먼저 설치하세요."; exit 1; fi
 
 MODE="${1:-}"
+if [ "$MODE" = "reset-pin" ]; then
+  echo "${2:-}" | grep -Eq '^[0-9]{4,8}$' || { echo "새 PIN을 숫자 4~8자리로 넣어 주세요. 예: ./deploy.sh reset-pin 1234"; exit 1; }
+  mkdir -p data
+  printf '%s\n' "$2" > data/reset-pin
+  echo "감독 화면에서 새 PIN($2)으로 로그인하면 바뀝니다."
+  exit 0
+fi
 case "$MODE" in
   stop) $DC down; exit 0 ;;
   logs) $DC logs -f --tail 100; exit 0 ;;

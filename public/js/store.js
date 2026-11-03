@@ -3,7 +3,6 @@
   'use strict';
   const Core = window.KioskCore;
   const KEY = 'study-room-kiosk/state/v2';
-  const ADMIN_TYPES = new Set(['reset', 'settings', 'roster', 'demo-fill']);
 
   async function getJson(url) {
     const r = await fetch(url, { cache: 'no-store' });
@@ -33,10 +32,16 @@
       get state() { return state; },
       subscribe(f) { subs.add(f); return () => subs.delete(f); },
       async dispatch(action) {
-        if (ADMIN_TYPES.has(action.type) || action.byTeacher) {
-          if (action.pin !== state.settings.pin) return { ok: false, error: 'PIN이 맞지 않아요' };
+        if (Core.ADMIN_TYPES.has(action.type) || action.byTeacher) {
+          if (action.pin !== state.settings.pin) return { ok: false, error: '다시 로그인해 주세요', auth: true };
         }
-        const res = Core.apply(state, layout, action);
+        let res;
+        if (action.type === 'change-pin') {
+          if (action.current !== state.settings.pin) return { ok: false, error: '지금 PIN이 맞지 않아요' };
+          if (!/^\d{4,8}$/.test(String(action.next || ''))) return { ok: false, error: 'PIN은 숫자 4~8자리로 정해 주세요' };
+          state.settings.pin = String(action.next);
+          res = { ok: true };
+        } else res = Core.apply(state, layout, action);
         if (res.ok) {
           save();
           subs.forEach((f) => f(state));

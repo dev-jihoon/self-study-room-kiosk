@@ -2,7 +2,8 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#f2f4f6">
 <title>자습실 감독 화면</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/admin.css">
@@ -13,6 +14,7 @@
   <div class="topbar__right">
     <span id="today" class="topbar__date"></span>
     <span id="clock" class="topbar__clock"></span>
+    <button class="btn btn--small" id="lock" type="button" hidden>잠그기</button>
     <a class="btn btn--small" href="index.html">키오스크로</a>
   </div>
 </header>
@@ -43,6 +45,7 @@
   <nav class="seg-tabs" id="tabs">
     <button data-tab="map" class="is-on" type="button">좌석</button>
     <button data-tab="absent" type="button">안 온 학생</button>
+    <button data-tab="roster" type="button">명단</button>
     <button data-tab="stats" type="button">기록</button>
     <button data-tab="settings" type="button">설정</button>
   </nav>
@@ -76,10 +79,64 @@
       <p>이름을 누르면 자리를 직접 정해 줄 수 있어요</p>
     </div>
     <div class="classes" id="absent-classes"></div>
+    <div class="tab__head tab__head--sub" id="out-head">
+      <h2>외출 중인 학생</h2>
+    </div>
+    <div class="card"><div class="chips" id="out-list"></div></div>
     <div class="tab__head tab__head--sub">
       <h2>신청 안 하고 온 학생</h2>
     </div>
     <div class="card"><div class="chips" id="extra-list"></div></div>
+  </section>
+
+  <!-- 명단 -->
+  <section class="tab" id="t-roster">
+    <div class="card">
+      <div class="roster__head">
+        <div>
+          <h3 class="card__h">학생 명단</h3>
+          <p class="muted" id="roster-sum"></p>
+        </div>
+        <div class="btn-wrap">
+          <button class="btn btn--small" id="r-add" type="button">학생 더하기</button>
+          <button class="btn btn--small btn--primary" id="r-import" type="button">명단 불러오기</button>
+        </div>
+      </div>
+      <div class="filters">
+        <input class="search" id="r-q" type="search" placeholder="이름이나 학번으로 찾기" autocomplete="off" aria-label="명단에서 찾기">
+        <select class="select" id="r-grade" aria-label="학년"></select>
+        <select class="select" id="r-class" aria-label="반"></select>
+        <select class="select" id="r-night" aria-label="야자 신청">
+          <option value="">신청 여부 전체</option>
+          <option value="1">신청한 학생</option>
+          <option value="0">신청 안 한 학생</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>학번</th><th>이름</th><th>오늘 자리</th><th class="t-c">야자 신청</th><th></th></tr></thead>
+          <tbody id="r-body"></tbody>
+        </table>
+      </div>
+      <div class="more" id="r-more"></div>
+      <div class="bulk" id="r-bulk">
+        <span id="r-bulk-text"></span>
+        <div class="btn-wrap">
+          <button class="btn btn--small" id="r-night-on" type="button">모두 신청으로</button>
+          <button class="btn btn--small" id="r-night-off" type="button">모두 신청 취소</button>
+          <button class="btn btn--small btn--danger" id="r-del" type="button">모두 지우기</button>
+        </div>
+      </div>
+    </div>
+    <div class="card form">
+      <h3 class="card__h">파일</h3>
+      <p class="muted">내려받은 명단을 엑셀에서 고친 다음 다시 불러오면 돼요</p>
+      <div class="btn-wrap">
+        <button class="btn" id="r-export" type="button">명단 내려받기</button>
+        <button class="btn" id="r-template" type="button">빈 양식 내려받기</button>
+        <a class="btn" href="cards.html" target="_blank">시연용 카드 만들기</a>
+      </div>
+    </div>
   </section>
 
   <!-- 기록 -->
@@ -101,10 +158,22 @@
           <button data-f="all" class="is-on" type="button">전체</button>
           <button data-f="assign" type="button">배정</button>
           <button data-f="move" type="button">이동</button>
+          <button data-f="out" type="button">외출</button>
           <button data-f="release" type="button">반납</button>
         </div>
       </div>
       <ul class="log" id="log"></ul>
+    </div>
+    <div class="card history" data-server>
+      <div class="card__head">
+        <h3 class="card__h">지난 기록</h3>
+      </div>
+      <div class="range">
+        <label for="h-from">시작<input type="date" id="h-from"></label>
+        <label for="h-to">끝<input type="date" id="h-to"></label>
+        <button class="btn btn--small btn--primary" id="h-csv" type="button">출석부 내려받기</button>
+      </div>
+      <ul class="days" id="h-days"></ul>
     </div>
   </section>
 
@@ -116,20 +185,46 @@
         <label for="f-start">야자 시작 시각<input type="time" id="f-start"></label>
         <label for="f-end">야자 끝나는 시각<input type="time" id="f-end"></label>
       </div>
+      <div class="field">
+        <span class="field__label">야자 하는 요일</span>
+        <div class="daypick" id="f-days"></div>
+      </div>
       <label class="toggle" for="f-demo"><span>시간과 상관없이 배정받게 하기<small>시연할 때 켜 두세요</small></span><input type="checkbox" id="f-demo"></label>
       <label for="f-hook">배정 알림을 보낼 주소<input type="url" id="f-hook" placeholder="https://"></label>
       <label for="f-public">QR로 열릴 내 자리 주소<input type="url" id="f-public" placeholder="비워 두면 지금 주소를 써요"></label>
-      <label for="f-pin">감독 PIN 바꾸기<input type="password" id="f-pin" inputmode="numeric" placeholder="바꿀 때만 입력"></label>
       <button class="btn btn--primary" id="f-save" type="button">저장하기</button>
     </div>
 
     <div class="card form">
-      <h3 class="card__h">학생 명단 <span class="muted" id="roster-count"></span></h3>
-      <p class="muted">CSV 파일로 바꿀 수 있어요. 한 줄에 학번,이름,야자신청(1 또는 0)</p>
+      <h3 class="card__h">보안</h3>
+      <div class="line">
+        <span><b>감독 PIN</b><small id="pin-info"></small></span>
+        <button class="btn btn--small" id="f-pin" type="button">PIN 바꾸기</button>
+      </div>
+      <div class="line">
+        <span><b>자동 잠금</b><small>감독 화면을 안 만지면 잠가요</small></span>
+        <select class="select" id="f-lock" aria-label="자동 잠금">
+          <option value="0">안 잠가요</option>
+          <option value="3">3분 뒤</option>
+          <option value="5">5분 뒤</option>
+          <option value="10">10분 뒤</option>
+          <option value="30">30분 뒤</option>
+          <option value="60">1시간 뒤</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card form">
+      <h3 class="card__h">막아 둔 자리</h3>
+      <p class="muted" id="closed-info"></p>
+    </div>
+
+    <div class="card form" data-server>
+      <h3 class="card__h">백업</h3>
+      <p class="muted">명단, 설정, 오늘 자리, 지난 기록을 파일 하나로 받아 둬요</p>
       <div class="btn-wrap">
-        <label class="btn file" for="f-csv">명단 불러오기<input type="file" id="f-csv" accept=".csv,text/csv"></label>
-        <button class="btn" id="f-export" type="button">명단 내려받기</button>
-        <a class="btn" href="cards.html" target="_blank">시연용 카드 만들기</a>
+        <button class="btn" id="f-backup" type="button">백업 내려받기</button>
+        <label class="btn file" for="f-restore">백업으로 되돌리기<input type="file" id="f-restore" accept=".json,application/json"></label>
       </div>
     </div>
 
@@ -144,6 +239,7 @@
   </section>
 </main>
 
+<!-- 확인 -->
 <div class="sheet-wrap" id="confirm">
   <div class="sheet">
     <h3 id="confirm-title"></h3>
@@ -154,11 +250,81 @@
     </div>
   </div>
 </div>
+
+<!-- 학생 더하기, 고치기 -->
+<div class="sheet-wrap" id="stu">
+  <form class="sheet" id="stu-form" autocomplete="off">
+    <h3 id="stu-title"></h3>
+    <div class="form form--sheet">
+      <label for="stu-id">학번<input type="text" id="stu-id" inputmode="numeric" maxlength="12" placeholder="예: 20105"></label>
+      <label for="stu-name">이름<input type="text" id="stu-name" maxlength="30"></label>
+      <label class="toggle" for="stu-night"><span>야자 신청</span><input type="checkbox" id="stu-night"></label>
+    </div>
+    <p class="sheet__err" id="stu-err"></p>
+    <div class="btn-row">
+      <button class="btn btn--danger" id="stu-del" type="button">지우기</button>
+      <button class="btn" id="stu-cancel" type="button">취소</button>
+      <button class="btn btn--primary" type="submit">저장하기</button>
+    </div>
+  </form>
+</div>
+
+<!-- 명단 불러오기 -->
+<div class="sheet-wrap sheet-wrap--center" id="imp">
+  <div class="panel">
+    <div class="imp-step" id="imp-pick">
+      <h3>명단을 어디서 가져올까요?</h3>
+      <p>엑셀이나 CSV 파일을 고르거나, 엑셀에서 표를 복사해 붙여 넣어 주세요</p>
+      <label class="drop file" for="imp-file" id="imp-drop">
+        <b>파일 고르기</b>
+        <span>.xlsx, .csv 파일</span>
+        <input type="file" id="imp-file" accept=".xlsx,.csv,.txt,.tsv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+      </label>
+      <textarea id="imp-paste" rows="5" placeholder="여기에 붙여 넣기"></textarea>
+      <p class="hint">머리글(학번, 이름, 야자신청)은 알아서 찾아요. 학번 대신 학년, 반, 번호 칸이 있어도 돼요.</p>
+      <div class="btn-row">
+        <button class="btn" data-close type="button">닫기</button>
+        <button class="btn btn--primary" id="imp-read" type="button">붙여 넣은 표 읽기</button>
+      </div>
+    </div>
+    <div class="imp-step" id="imp-how" hidden>
+      <h3 id="imp-title"></h3>
+      <div class="problems" id="imp-problems"></div>
+      <div class="table-wrap table-wrap--small"><table class="table" id="imp-preview"></table></div>
+      <h4 class="imp-q">어떻게 불러올까요?</h4>
+      <div class="choices" id="imp-choices"></div>
+      <div class="btn-row">
+        <button class="btn" id="imp-back" type="button">다시 고르기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PIN 바꾸기 -->
+<div class="sheet-wrap sheet-wrap--center" id="pinx">
+  <div class="panel panel--pin">
+    <h3 id="pinx-title"></h3>
+    <div class="dots" id="pinx-dots"></div>
+    <p class="gate__hint" id="pinx-hint"></p>
+    <div class="numpad gate__pad" id="pinx-pad">
+      <button type="button">1</button><button type="button">2</button><button type="button">3</button>
+      <button type="button">4</button><button type="button">5</button><button type="button">6</button>
+      <button type="button">7</button><button type="button">8</button><button type="button">9</button>
+      <span></span><button type="button">0</button><button type="button" data-k="del" class="key-del">지우기</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="pinx-cancel" type="button">취소</button>
+      <button class="btn btn--primary" id="pinx-next" type="button">다음</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="js/core.js"></script>
 <script src="js/store.js"></script>
 <script src="js/seatmap.js"></script>
+<script src="js/tablefile.js"></script>
 <script src="js/admin.js"></script>
 </body>
 </html>
