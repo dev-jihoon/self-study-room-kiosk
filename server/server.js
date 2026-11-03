@@ -223,6 +223,8 @@ const TYPES = {
 function serveStatic(req, res, pathname) {
   let p = decodeURIComponent(pathname);
   if (p.endsWith('/')) p += 'index.html';
+  /* 확장자 없는 주소는 같은 이름의 화면으로: /admin -> admin.html */
+  else if (!path.extname(p) && /^\/[a-z][a-z0-9-]*$/.test(p)) p += '.html';
   const file = path.normalize(path.join(PUBLIC, p));
   if (!file.startsWith(PUBLIC)) { res.writeHead(403); res.end(); return; }
   fs.stat(file, (err, st) => {

@@ -15,7 +15,7 @@
     <span id="today" class="topbar__date"></span>
     <span id="clock" class="topbar__clock"></span>
     <button class="btn btn--small" id="lock" type="button" hidden>잠그기</button>
-    <a class="btn btn--small" href="index.html">키오스크로</a>
+    <a class="btn btn--small" href="./">키오스크로</a>
   </div>
 </header>
 
@@ -145,7 +145,7 @@
       <div class="btn-wrap">
         <button class="btn" id="r-export" type="button">명단 내려받기</button>
         <button class="btn" id="r-template" type="button">빈 양식 내려받기</button>
-        <a class="btn" href="cards.html" target="_blank">시연용 카드 만들기</a>
+        <a class="btn" href="cards" target="_blank">시연용 카드 만들기</a>
       </div>
     </div>
   </section>
@@ -328,7 +328,13 @@
         <span class="field__label">야자 신청 요일</span>
         <div class="daypick" id="stu-days"></div>
       </div>
-      <label for="stu-seat">지정석<input type="text" id="stu-seat" inputmode="numeric" maxlength="4" placeholder="없으면 비워 두세요"></label>
+      <div class="field">
+        <span class="field__label">지정석</span>
+        <div class="seatfield">
+          <button type="button" class="seatfield__btn" id="stu-seat-pick"><span id="stu-seat-text"></span><b>배치도에서 고르기</b></button>
+          <button type="button" class="btn btn--small btn--ghost" id="stu-seat-clear">없애기</button>
+        </div>
+      </div>
     </div>
     <p class="sheet__err" id="stu-err"></p>
     <div class="btn-row">
@@ -366,6 +372,18 @@
       <div class="btn-row">
         <button class="btn" id="imp-back" type="button">다시 고르기</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- 지정석 고르기 -->
+<div class="sheet-wrap sheet-wrap--center" id="seatpick">
+  <div class="panel panel--wide">
+    <h3 id="seatpick-title"></h3>
+    <p class="muted" id="seatpick-sub"></p>
+    <div class="seatpick__map" id="seatpick-map"></div>
+    <div class="btn-row">
+      <button class="btn" id="seatpick-cancel" type="button">취소</button>
     </div>
   </div>
 </div>

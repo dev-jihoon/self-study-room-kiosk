@@ -180,6 +180,11 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     assert.ok((await post('/api/login', { pin: '2468' })).ok, 'reset-pin으로 PIN 되돌리기');
     assert.ok(!fs.existsSync(path.join(DATA, 'reset-pin')), 'reset-pin 파일은 지워짐');
 
+    for (const route of ['/admin', '/away', '/cards', '/me', '/admin.html']) {
+      const r2 = await fetch(base + route);
+      assert.ok(r2.status === 200 && (r2.headers.get('content-type') || '').startsWith('text/html'), route + ' 주소');
+    }
+    assert.strictEqual((await fetch(base + '/nope')).status, 404, '없는 주소는 404');
     const page = await fetch(base + '/index.html');
     assert.strictEqual(page.status, 200);
     const tag = page.headers.get('etag');

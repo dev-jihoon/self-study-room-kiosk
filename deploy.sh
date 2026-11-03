@@ -110,7 +110,7 @@ until curl -fsSk --max-time 3 "$URL/api/health" >/dev/null 2>&1; do
 done
 echo
 echo "키오스크:   $URL/"
-echo "감독 화면:  $URL/admin.html  (PIN은 .env의 ADMIN_PIN)"
+echo "감독 화면:  $URL/admin  (PIN은 .env의 ADMIN_PIN)"
 if [ "$MODE" = "oci" ]; then
   echo "접속이 안 되면 OCI 콘솔의 보안 목록(Security List)에서 80, 443 포트 수신을 허용했는지 확인하세요."
 else

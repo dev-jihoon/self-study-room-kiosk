@@ -683,6 +683,52 @@
   /* 학생 더하기, 고치기 */
   let editing = null;
   let stuDays = [];
+  let stuSeat = null;
+  function drawStuSeat() {
+    $('stu-seat-text').textContent = stuSeat ? stuSeat + '번' : '없어요';
+    $('stu-seat-pick').classList.toggle('is-set', !!stuSeat);
+    $('stu-seat-clear').hidden = !stuSeat;
+  }
+  /* 같은 요일에 이 학생과 겹치는 다른 학생의 지정석 */
+  function seatConflicts() {
+    const out = {};
+    store.state.roster.forEach((o) => {
+      if (!o.seat || o.id === editing) return;
+      if (o.days.some((d) => stuDays.indexOf(d) !== -1)) out[o.seat] = { id: o.id, name: o.name };
+    });
+    return out;
+  }
+  function openSeatPick() {
+    const name = $('stu-name').value.trim() || '이 학생';
+    const conflicts = seatConflicts();
+    $('seatpick-title').textContent = name + '님 지정석을 골라 주세요';
+    $('seatpick-sub').textContent = Object.keys(conflicts).length ? '이름이 보이는 자리는 같은 요일에 다른 학생 지정석이에요' : '';
+    $('stu').classList.remove('is-open');
+    $('seatpick').classList.add('is-open');
+    const map = window.SeatMap.render($('seatpick-map'), layout, { seats: {}, settings: { closedSeats: store.state.settings.closedSeats || [] } }, {
+      mode: 'admin',
+      reserved: conflicts,
+      decorate(el, no) {
+        if (conflicts[no]) { el.disabled = true; el.classList.add('is-taken-fixed'); }
+        if (no === stuSeat) el.classList.add('is-selected');
+      },
+      onSeat(no) {
+        if (conflicts[no]) { toast(conflicts[no].name + '님 지정석이에요'); return; }
+        stuSeat = no;
+        closeSeatPick();
+      }
+    });
+    requestAnimationFrame(() => window.SeatMap.fit($('seatpick-map'), map, 1.2));
+  }
+  function closeSeatPick() {
+    $('seatpick').classList.remove('is-open');
+    $('stu').classList.add('is-open');
+    drawStuSeat();
+  }
+  $('stu-seat-pick').addEventListener('click', openSeatPick);
+  $('stu-seat-clear').addEventListener('click', () => { stuSeat = null; drawStuSeat(); });
+  $('seatpick-cancel').addEventListener('click', closeSeatPick);
+  $('seatpick').addEventListener('click', (e) => { if (e.target.id === 'seatpick') closeSeatPick(); });
   function drawStuDays() {
     $('stu-days').innerHTML = nightDays().map((d) => '<button type="button" data-d="' + d + '" class="' + (stuDays.indexOf(d) !== -1 ? 'is-on' : '') + '">' + Core.DAY_NAMES[d] + '</button>').join('');
   }
@@ -702,7 +748,8 @@
     $('stu-name').value = s ? s.name : '';
     stuDays = s ? s.days.slice() : nightDays().slice();
     drawStuDays();
-    $('stu-seat').value = s && s.seat ? s.seat : '';
+    stuSeat = s && s.seat ? s.seat : null;
+    drawStuSeat();
     $('stu-del').hidden = !s;
     $('stu-err').textContent = '';
     $('stu').classList.add('is-open');
@@ -714,9 +761,7 @@
   $('stu').addEventListener('click', (e) => { if (e.target.id === 'stu') closeStudent(); });
   $('stu-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const seatText = $('stu-seat').value.trim().replace(/번$/, '');
-    const student = { id: $('stu-id').value.trim(), name: $('stu-name').value.trim(), days: stuDays, seat: seatText };
-    if (seatText && Core.allSeatNumbers(layout).indexOf(Number(seatText)) === -1) { $('stu-err').textContent = seatText + '번은 없는 자리예요'; return; }
+    const student = { id: $('stu-id').value.trim(), name: $('stu-name').value.trim(), days: stuDays, seat: stuSeat || '' };
     const err = Core.checkStudent(student);
     if (err) { $('stu-err').textContent = err; return; }
     const r = await act({ type: 'student-save', isNew: !editing, student });
@@ -936,7 +981,7 @@
     setTimeout(() => window.print(), 100);
   });
 
-  store.subscribe(() => { if (!document.querySelector('#stu.is-open, #imp.is-open, #pinx.is-open, #choose.is-open')) render(); });
+  store.subscribe(() => { if (!document.querySelector('#stu.is-open, #imp.is-open, #pinx.is-open, #choose.is-open, #seatpick.is-open')) render(); });
   setInterval(render, 20000);
 
   /* ---------- 설정 ---------- */
@@ -975,7 +1020,7 @@
   /* 학생이 못 온다고 알리는 주소와 QR */
   function awayUrl() {
     const base = store.state.settings.publicUrl || location.href.replace(/[^/]*(\?.*)?(#.*)?$/, '');
-    return base.replace(/\/?$/, '/') + 'away.html';
+    return base.replace(/\/?$/, '/') + 'away';
   }
   function drawAwayLink() {
     const url = awayUrl();

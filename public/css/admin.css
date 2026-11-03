@@ -374,3 +374,16 @@ body.admin { background: var(--gray100); user-select: text; overflow: auto; heig
   .planned li { grid-template-columns: 1fr auto; }
   .share { flex-direction: column; align-items: flex-start; }
 }
+
+/* 지정석 고르기 */
+.seatfield { display: flex; gap: 8px; align-items: center; }
+.seatfield__btn { flex: 1; display: flex; justify-content: space-between; align-items: center; height: 52px; padding: 0 16px; border-radius: 14px; background: var(--gray100); font-size: 17px; color: var(--gray500); }
+.seatfield__btn b { font-size: 15px; color: var(--blue); }
+.seatfield__btn.is-set span { color: var(--gray900); font-weight: 700; }
+.panel--wide { width: min(1120px, 100%); }
+.panel--wide .muted { margin: 0 0 14px; font-size: 15px; min-height: 20px; }
+.seatpick__map { display: flex; justify-content: center; overflow: hidden; height: min(560px, calc(100vh - 240px)); }
+.seatpick__map .seat.is-taken-fixed { background: var(--white); box-shadow: inset 0 0 0 1px var(--gray200); cursor: default; }
+.seatpick__map .seat--free:not(.is-taken-fixed):active { background: var(--blue-soft); }
+.seatpick__map .seatmap--admin .seat--free:not(.is-taken-fixed) { background: var(--gray100); color: var(--gray700); }
+.seatpick__map .seatmap--admin .seat.is-selected { background: var(--blue); color: var(--white); }

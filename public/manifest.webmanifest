@@ -1,7 +1,7 @@
 {
   "name": "자기주도학습실 좌석 배정",
   "short_name": "좌석 배정",
-  "start_url": "./index.html",
+  "start_url": "./",
   "display": "fullscreen",
   "orientation": "landscape",
   "background_color": "#f3f4f6",

@@ -219,7 +219,7 @@
   function myUrl(seat) {
     const base = store.state.settings.publicUrl || location.href.replace(/[^/]*(\?.*)?(#.*)?$/, '');
     const q = new URLSearchParams({ s: seat, n: current.name, d: store.state.day, t: Core.hhmm() });
-    return base.replace(/\/?$/, '/') + 'me.html?' + q.toString();
+    return base.replace(/\/?$/, '/') + 'me?' + q.toString();
   }
 
   function countdown(sec) {
