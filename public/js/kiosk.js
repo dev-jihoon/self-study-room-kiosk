@@ -48,13 +48,23 @@
       $('idle-title').innerHTML = '학생증을<br>찍어 주세요';
       $('idle-sub').textContent = '바코드가 카메라에 보이게 대 주세요';
     } else if (!Core.isNightDay(st)) {
+      const off = Core.offDate(st);
       $('idle-title').innerHTML = '오늘은 야자가<br>없는 날이에요';
-      $('idle-sub').textContent = '반납과 외출은 언제든 돼요';
+      $('idle-sub').textContent = off && off.label ? off.label + ' 때문에 쉬어요' : '반납과 외출은 언제든 돼요';
     } else {
       $('idle-title').innerHTML = '지금은 야자 시간이<br>아니에요';
       $('idle-sub').textContent = st.settings.nightStart + '부터 자리를 받을 수 있어요. 반납은 언제든 돼요.';
     }
   }
+
+  /* 감독이 적어 둔 공지 */
+  function renderNotice() {
+    const n = String(store.state.settings.notice || '').trim();
+    $('notice').hidden = !n;
+    $('notice').textContent = n;
+  }
+  store.subscribe(renderNotice);
+  renderNotice();
 
   function tick() { $('clock').textContent = Core.hhmm(); if (screen === 'idle') renderIdle(); }
   setInterval(tick, 10000);
@@ -95,7 +105,11 @@
     setInput('');
     const seat = Core.seatOf(store.state, st.id);
     const open = Core.kioskOpen(store.state);
-    if (seat === null && open) { renderPick(); show('pick'); return; }
+    if (seat === null && open) {
+      /* 지정석이 비어 있으면 한 번에 앉게 한다 */
+      if (myFixedSeat() !== null) { renderWho(null, open); show('who'); return; }
+      renderPick(); show('pick'); return;
+    }
     renderWho(seat, open);
     show('who');
   }
@@ -109,11 +123,31 @@
     return b;
   }
 
+  /* 지금 학생의 지정석이 비어 있고 쓸 수 있으면 그 번호 */
+  function myFixedSeat() {
+    const st = store.state;
+    const n = current && current.seat;
+    if (!n || st.seats[n] || Core.isClosed(st, n)) return null;
+    return Core.allSeatNumbers(layout).indexOf(n) !== -1 ? n : null;
+  }
+
+  async function sitAt(seat) {
+    const res = await store.dispatch({ type: 'assign', id: current.id, seat });
+    if (!res.ok) { toast(res.error); renderPick(); show('pick'); return; }
+    showDone(seat, res.moved);
+  }
+
   function renderWho(seat, open) {
     const acts = $('who-actions');
     acts.innerHTML = '';
     acts.className = 'btn-col';
-    if (seat !== null && store.state.seats[seat].out) {
+    const fixed = seat === null && open ? myFixedSeat() : null;
+    if (fixed !== null) {
+      $('who-title').innerHTML = esc(current.name) + '님 자리는<br>' + fixed + '번이에요';
+      $('who-sub').textContent = '';
+      acts.appendChild(button(fixed + '번에 앉을게요', 'btn--primary', () => sitAt(fixed)));
+      acts.appendChild(button('다른 자리 고를게요', '', () => { renderPick(); show('pick'); }));
+    } else if (seat !== null && store.state.seats[seat].out) {
       $('who-title').innerHTML = esc(current.name) + '님,<br>다녀왔어요?';
       $('who-sub').textContent = seat + '번 자리는 그대로 있어요';
       acts.appendChild(button('돌아왔어요', 'btn--primary', () => outBack('back', seat)));
@@ -142,6 +176,9 @@
     const map = window.SeatMap.render($('pick-map'), layout, st, {
       mode: 'pick',
       mine,
+      reserved: Core.reservations(st),
+      me: current.id,
+      lockReserved: !!st.settings.fixedOnly,
       onSeat(no, occ) {
         if (occ && occ.id === current.id) { toast('지금 앉아 있는 자리예요'); return; }
         if (occ) { toast('이미 누가 앉아 있어요'); return; }

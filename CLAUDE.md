@@ -19,6 +19,7 @@
 - 서버는 Node 내장 모듈만 쓴다.
 - 화면 문구는 토스처럼 해요체로 짧게, 한 화면에 한 가지만 묻는다. "~학생", 명사형 끊기, 정보 몰아넣기는 쓰지 않는다. 가운뎃점(·)은 쓰지 않는다.
 - 시연 명단은 영어 이름(Alex 등)을 쓰고, 한국 이름을 로마자로 옮긴 이름(Yuna 등)은 쓰지 않는다. `public/data/roster.json`을 바꾸면 저장된 상태도 다음 실행 때 새 이름으로 맞춰진다(`data/roster.csv`로 바꾼 명단은 제외).
+- 학생은 `{ id, name, days: [요일], seat? }`. 예전 `night: true/false`는 `upgradeState`, `cleanStudent`가 `days`로 바꾼다. 오늘 신청 여부는 `Core.applied(student, date)`로만 본다.
 - 감독만 할 수 있는 요청은 `core.js`의 `ADMIN_TYPES`에 넣는다. 서버는 로그인 세션 토큰(`token`)으로, 브라우저 저장소 모드는 PIN으로 확인한다. PIN은 서버에서 해시로만 저장한다.
 - 바꾼 뒤에는 `npm test`로 서버 모드를 확인한다. `public/sw.js`의 CACHE 이름을 올려야 태블릿이 새 버전을 받는다.
 

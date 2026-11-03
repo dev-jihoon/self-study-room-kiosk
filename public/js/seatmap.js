@@ -13,7 +13,9 @@
    opts.mode: 'pick' (키오스크 선택), 'admin' (감독 현황), 'view' (내 자리)
    opts.mine: 강조할 좌석 번호
    opts.onSeat(no): 좌석을 눌렀을 때
-   opts.roster: 감독 화면에서 미신청 표시용
+   opts.reserved: { 자리: {id, name} } 오늘 주인이 정해진 지정석 (빈자리일 때만 표시)
+   opts.me: 키오스크에서 지금 쓰는 학생 학번 (자기 지정석은 고를 수 있다)
+   opts.lockReserved: 남의 지정석은 못 누르게 한다
   */
   function render(container, layout, state, opts) {
     opts = opts || {};
@@ -30,8 +32,10 @@
           if (c === null) { r.appendChild(el('div', 'seat seat--gap')); return; }
           const occ = state.seats[c];
           const isClosed = !occ && closed.has(c);
-          /* 막아 둔 자리는 키오스크에서 누를 수 없고, 감독 화면에서는 다시 열 수 있게 누를 수 있다 */
-          const clickable = opts.onSeat && !(isClosed && opts.mode !== 'admin');
+          const res = !occ && !isClosed && opts.reserved ? opts.reserved[c] : null;
+          const othersSeat = res && res.id !== opts.me;
+          /* 막아 둔 자리와 남의 지정석은 키오스크에서 누를 수 없고, 감독 화면에서는 누를 수 있다 */
+          const clickable = opts.onSeat && !(opts.mode !== 'admin' && (isClosed || (othersSeat && opts.lockReserved)));
           const s = el(clickable ? 'button' : 'div', 'seat');
           s.dataset.seat = c;
           s.appendChild(el('span', 'seat__no', String(c)));
@@ -45,6 +49,11 @@
           } else if (isClosed) {
             s.classList.add('seat--closed');
             s.appendChild(el('span', 'seat__tag', '막힘'));
+          } else if (res) {
+            s.classList.add('seat--free', 'seat--reserved');
+            if (opts.mode === 'admin') s.appendChild(el('span', 'seat__name seat__name--ghost', res.name));
+            else if (!othersSeat) { s.classList.add('seat--yours'); s.appendChild(el('span', 'seat__tag', '내 지정석')); }
+            else if (opts.lockReserved) s.appendChild(el('span', 'seat__tag', '지정석'));
           } else {
             s.classList.add('seat--free');
           }

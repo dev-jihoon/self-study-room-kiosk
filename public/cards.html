@@ -53,7 +53,7 @@
   const NS = 'http://www.w3.org/2000/svg';
   function draw() {
     const only = document.getElementById('only-night').checked;
-    const list = store.state.roster.filter((s) => !only || s.night !== false);
+    const list = store.state.roster.filter((s) => !only || (s.days || []).length > 0);
     const sheet = document.getElementById('sheet');
     sheet.innerHTML = '';
     list.forEach((s) => {

@@ -38,6 +38,7 @@ function loadState() {
     const s = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
     if (s && s.version === 1) {
       s.settings = Object.assign(Core.defaultSettings(), s.settings);
+      Core.upgradeState(s);
       /* data/roster.csv가 없으면 기본 명단 파일을 따라간다 (명단 파일이 바뀌면 새 이름으로) */
       if (!fs.existsSync(path.join(DATA_DIR, 'roster.csv'))) {
         Core.syncDefaultRoster(s, JSON.parse(fs.readFileSync(path.join(PUBLIC, 'data', 'roster.json'), 'utf8')));
@@ -80,10 +81,15 @@ function writeHistory(rec) {
   fs.renameSync(file + '.tmp', file);
 }
 function roll() {
-  if (state.day === Core.todayKey()) return;
-  if (state.log.length) writeHistory(Core.dayRecord(state));
-  Core.rollDay(state);
-  save();
+  const now = new Date();
+  if (state.day !== Core.todayKey(now)) {
+    if (state.log.length || Core.isNightDay(state, Core.dateOf(state.day))) writeHistory(Core.dayRecord(state));
+    Core.rollDay(state, now);
+    save();
+  }
+  /* 끝나는 시각이 지나면 남은 자리 반납 */
+  const n = Core.autoRelease(state, now);
+  if (n) { save(); console.log('야자가 끝나 ' + n + '자리를 반납했습니다'); }
 }
 roll();
 save();
@@ -243,7 +249,26 @@ function readHistory(day) {
 function summary(rec) {
   const night = new Set(rec.night);
   const came = Object.keys(rec.students);
-  return { day: rec.day, night: night.size, came: came.filter((id) => night.has(id)).length, extra: came.filter((id) => !night.has(id)).length, early: came.filter((id) => rec.students[id].early).length };
+  const excused = Object.keys(rec.excused || {}).filter((id) => night.has(id)).length;
+  const comeN = came.filter((id) => night.has(id)).length;
+  return { day: rec.day, night: night.size, came: comeN, excused, absent: night.size - comeN - excused, extra: came.filter((id) => !night.has(id)).length, early: came.filter((id) => rec.students[id].early).length };
+}
+/* 학생 한 명의 그날 상태: came, early, excused(사유), absent, none(신청 안 함) */
+function statusOf(rec, id) {
+  const s = rec.students[id];
+  if (s) return s.early ? 'early' : 'came';
+  if ((rec.excused || {})[id]) return 'excused';
+  if (rec.night.indexOf(id) !== -1) return 'absent';
+  return 'none';
+}
+/* 오늘은 야자가 끝난 뒤에만 넣는다 (진행 중에 아직 안 온 학생을 결석으로 세지 않게) */
+function todayFinished() {
+  const set = state.settings;
+  return set.nightStart <= set.nightEnd && Core.hhmm() >= set.nightEnd;
+}
+function recordsBetween(from, to, withOpenToday) {
+  const days = historyDays().concat((withOpenToday || todayFinished()) && (state.log.length || Core.isNightDay(state, Core.dateOf(state.day))) ? [state.day] : []);
+  return days.filter((d, i, a) => a.indexOf(d) === i && d >= from && d <= to).sort().map(readHistory).filter(Boolean);
 }
 
 const csvCell = (v) => { v = String(v === undefined || v === null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
@@ -251,22 +276,24 @@ const hm = (iso) => (iso ? Core.hhmm(new Date(iso)) : '');
 
 /* 기간 출석부: 학생마다 날짜별로 출석(O), 조퇴, 결석(X), 신청 안 함(빈칸) */
 function attendanceCsv(from, to) {
-  const days = historyDays().concat(state.log.length ? [state.day] : []).filter((d, i, a) => a.indexOf(d) === i && d >= from && d <= to).sort();
-  const recs = days.map(readHistory).filter(Boolean);
+  const recs = recordsBetween(from, to, true);
   const names = new Map(state.roster.map((s) => [s.id, s.name]));
   recs.forEach((r) => Object.entries(r.names || {}).forEach(([id, n]) => { if (!names.has(id)) names.set(id, n); }));
   const ids = new Set();
-  recs.forEach((r) => { r.night.forEach((id) => ids.add(id)); Object.keys(r.students).forEach((id) => ids.add(id)); });
-  const head = ['학번', '이름'].concat(recs.map((r) => r.day.slice(5).replace('-', '/')), ['출석', '결석', '조퇴']);
+  recs.forEach((r) => { r.night.forEach((id) => ids.add(id)); Object.keys(r.students).forEach((id) => ids.add(id)); Object.keys(r.excused || {}).forEach((id) => ids.add(id)); });
+  const head = ['학번', '이름'].concat(recs.map((r) => r.day.slice(5).replace('-', '/') + '(' + Core.DAY_NAMES[Core.dateOf(r.day).getDay()] + ')'), ['출석', '결석', '사유 결석', '조퇴', '출석률']);
   const lines = [...ids].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).map((id) => {
-    let o = 0, x = 0, e = 0;
+    let o = 0, x = 0, ex = 0, e = 0;
     const cells = recs.map((r) => {
-      const s = r.students[id];
-      if (s) { if (s.early) { e += 1; return '조퇴'; } o += 1; return 'O'; }
-      if (r.night.indexOf(id) !== -1) { x += 1; return 'X'; }
+      const st = statusOf(r, id);
+      if (st === 'came') { o += 1; return 'O'; }
+      if (st === 'early') { e += 1; o += 1; return '조퇴'; }
+      if (st === 'excused') { ex += 1; return r.excused[id]; }
+      if (st === 'absent') { x += 1; return 'X'; }
       return '';
     });
-    return [id, names.get(id) || ''].concat(cells, [o, x, e]).map(csvCell).join(',');
+    const base = o + x;
+    return [id, names.get(id) || ''].concat(cells, [o, x, ex, e, base ? Math.round(o / base * 100) + '%' : '']).map(csvCell).join(',');
   });
   return { days: recs.length, text: head.map(csvCell).join(',') + '\n' + lines.join('\n') };
 }
@@ -275,14 +302,15 @@ function attendanceCsv(from, to) {
 function dayCsv(rec) {
   const night = new Set(rec.night);
   const names = rec.names || {};
-  const ids = new Set(rec.night.concat(Object.keys(rec.students)));
-  const typeName = { assign: '배정', move: '이동', release: '반납', out: '외출', back: '돌아옴' };
+  const ids = new Set(rec.night.concat(Object.keys(rec.students), Object.keys(rec.excused || {})));
+  const typeName = { assign: '배정', move: '이동', release: '반납', out: '외출', back: '돌아옴', excuse: '사유 결석' };
   const rows = [...ids].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).map((id) => {
     const s = rec.students[id];
-    const status = s ? (s.early ? '조퇴' : '출석') : '결석';
+    const st = statusOf(rec, id);
+    const status = st === 'came' ? '출석' : st === 'early' ? '조퇴' : st === 'excused' ? '사유 결석(' + rec.excused[id] + ')' : '결석';
     return [id, (s && s.name) || names[id] || '', night.has(id) ? '신청' : '안 함', status, s ? s.seat : '', s ? hm(s.in) : '', s ? hm(s.left) : '', s ? s.outs : ''].map(csvCell).join(',');
   });
-  const log = rec.log.slice().reverse().map((l) => [hm(l.at), typeName[l.type] || l.type, l.id, l.name, l.seat, l.note === 'early' ? '조퇴' : '', l.by === 'teacher' ? '감독' : '키오스크'].map(csvCell).join(','));
+  const log = rec.log.slice().reverse().map((l) => [hm(l.at), typeName[l.type] || l.type, l.id, l.name, l.seat, l.note === 'early' ? '조퇴' : l.note === 'auto' ? '끝나서 자동 반납' : l.type === 'excuse' ? l.note : '', l.by === 'teacher' ? '감독' : '키오스크'].map(csvCell).join(','));
   return '학번,이름,야자 신청,출석,자리,들어온 시각,나간 시각,외출 횟수\n' + rows.join('\n')
     + '\n\n시각,구분,학번,이름,자리,메모,처리\n' + log.join('\n');
 }
@@ -339,18 +367,48 @@ async function handler(req, res) {
     }
 
     /* 감독만 볼 수 있는 기록과 백업 (Authorization: Bearer 토큰) */
-    if (p.startsWith('/api/history') || p === '/api/attendance.csv' || p === '/api/backup' || p === '/api/restore') {
+    if (p.startsWith('/api/history') || p === '/api/attendance.csv' || p === '/api/backup' || p === '/api/restore' || p === '/api/student' || p === '/api/stats') {
       if (!authed(bearer(req))) return send(res, 401, { ok: false, error: '다시 로그인해 주세요', auth: true });
       roll();
       if (p === '/api/history' && req.method === 'GET') {
         const days = historyDays();
-        if (state.log.length && days.indexOf(state.day) === -1) days.unshift(state.day);
+        if ((state.log.length || Core.isNightDay(state, Core.dateOf(state.day))) && days.indexOf(state.day) === -1) days.unshift(state.day);
         return send(res, 200, { ok: true, days: days.map((d) => summary(readHistory(d))) });
       }
       if (p === '/api/history.csv' && req.method === 'GET') {
         const rec = readHistory(url.searchParams.get('day') || '');
         if (!rec) return send(res, 404, { ok: false, error: '그날 기록이 없어요' });
         return sendCsv(res, '야자기록_' + rec.day + '.csv', dayCsv(rec));
+      }
+      /* 학생 한 명의 최근 출석: GET /api/student?id=10101&days=28 */
+      if (p === '/api/student' && req.method === 'GET') {
+        const id = url.searchParams.get('id') || '';
+        const n = Math.min(Number(url.searchParams.get('days')) || 28, 366);
+        const from = Core.todayKey(new Date(Date.now() - n * 86400000));
+        const open = !todayFinished();
+        const list = recordsBetween(from, '9999-99-99', true).map((r) => ({ day: r.day, status: statusOf(r, id), reason: (r.excused || {})[id] || '', seat: r.students[id] ? r.students[id].seat : null, in: r.students[id] ? r.students[id].in : null }))
+          .filter((x) => x.status !== 'none' && !(open && x.day === state.day && x.status === 'absent'));
+        const count = (k) => list.filter((x) => x.status === k).length;
+        return send(res, 200, { ok: true, days: list.reverse(), came: count('came') + count('early'), absent: count('absent'), excused: count('excused'), early: count('early') });
+      }
+      /* 기간 통계: 요일별, 반별 출석률 */
+      if (p === '/api/stats' && req.method === 'GET') {
+        const recs = recordsBetween(url.searchParams.get('from') || '0000-00-00', url.searchParams.get('to') || '9999-99-99');
+        const add = (m, k, st) => { const x = m[k] || (m[k] = { night: 0, came: 0, excused: 0, absent: 0 }); if (st !== 'none') x.night += 1; if (st === 'came' || st === 'early') x.came += 1; if (st === 'excused') x.excused += 1; if (st === 'absent') x.absent += 1; };
+        const byDay = {}, byClass = {};
+        const top = {};
+        recs.forEach((r) => {
+          const wd = Core.dateOf(r.day).getDay();
+          r.night.forEach((id) => {
+            const st = statusOf(r, id);
+            add(byDay, wd, st);
+            add(byClass, /^\d{5}$/.test(id) ? id.slice(0, 3) : '기타', st);
+            if (st === 'absent') top[id] = (top[id] || 0) + 1;
+          });
+        });
+        const names = new Map(state.roster.map((s) => [s.id, s.name]));
+        const absentTop = Object.entries(top).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([id, n]) => ({ id, name: names.get(id) || '', n }));
+        return send(res, 200, { ok: true, days: recs.length, total: recs.reduce((a, r) => { const s = summary(r); a.night += s.night; a.came += s.came; a.excused += s.excused; a.absent += s.absent; return a; }, { night: 0, came: 0, excused: 0, absent: 0 }), byDay, byClass, absentTop });
       }
       if (p === '/api/attendance.csv' && req.method === 'GET') {
         const from = url.searchParams.get('from') || '0000-00-00', to = url.searchParams.get('to') || '9999-99-99';
@@ -372,7 +430,8 @@ async function handler(req, res) {
         const b = await readBody(req, 50e6);
         const s = b && b.kind === 'study-room-kiosk-backup' && b.state;
         if (!s || s.version !== 1 || !Array.isArray(s.roster) || typeof s.seats !== 'object') return send(res, 200, { ok: false, error: '이 앱의 백업 파일이 아니에요' });
-        const err = Core.checkRoster(s.roster);
+        Core.upgradeState(s);
+        const err = Core.checkRoster(s.roster) || Core.checkFixedSeats(s.roster, layout);
         if (err) return send(res, 200, { ok: false, error: '백업의 명단에 문제가 있어요. ' + err });
         const pinHash = state.settings.pinHash, pinLength = state.settings.pinLength;
         s.settings = Object.assign(Core.defaultSettings(), s.settings, { pinHash, pinLength });

@@ -59,6 +59,10 @@
           <button class="btn btn--small" id="assign-cancel" type="button">취소</button>
         </div>
         <div class="board__canvas" id="map"></div>
+        <div class="board__foot">
+          <span class="legend"><i class="lg lg--taken"></i>앉음<i class="lg lg--out"></i>외출<i class="lg lg--res"></i>지정석 주인이 아직 안 옴<i class="lg lg--closed"></i>막힘</span>
+          <button class="btn btn--small" id="print-map" type="button">배치도 인쇄</button>
+        </div>
       </div>
       <aside class="card side">
         <input class="search" id="search" type="search" placeholder="이름이나 학번으로 찾기" autocomplete="off" aria-label="학생 찾기">
@@ -76,9 +80,13 @@
   <section class="tab" id="t-absent">
     <div class="tab__head">
       <h2 id="absent-title"></h2>
-      <p>이름을 누르면 자리를 직접 정해 줄 수 있어요</p>
+      <p>이름을 누르면 자리를 정해 주거나 사유 있는 결석으로 적을 수 있어요</p>
     </div>
     <div class="classes" id="absent-classes"></div>
+    <div class="tab__head tab__head--sub" id="excused-head">
+      <h2>사유 있는 결석</h2>
+    </div>
+    <div class="card" id="excused-card"><div class="chips" id="excused-list"></div></div>
     <div class="tab__head tab__head--sub" id="out-head">
       <h2>외출 중인 학생</h2>
     </div>
@@ -106,15 +114,11 @@
         <input class="search" id="r-q" type="search" placeholder="이름이나 학번으로 찾기" autocomplete="off" aria-label="명단에서 찾기">
         <select class="select" id="r-grade" aria-label="학년"></select>
         <select class="select" id="r-class" aria-label="반"></select>
-        <select class="select" id="r-night" aria-label="야자 신청">
-          <option value="">신청 여부 전체</option>
-          <option value="1">신청한 학생</option>
-          <option value="0">신청 안 한 학생</option>
-        </select>
+        <select class="select" id="r-night" aria-label="야자 신청"></select>
       </div>
       <div class="table-wrap">
         <table class="table">
-          <thead><tr><th>학번</th><th>이름</th><th>오늘 자리</th><th class="t-c">야자 신청</th><th></th></tr></thead>
+          <thead><tr><th>학번</th><th>이름</th><th>신청 요일</th><th>지정석</th><th>오늘 자리</th><th></th></tr></thead>
           <tbody id="r-body"></tbody>
         </table>
       </div>
@@ -122,8 +126,9 @@
       <div class="bulk" id="r-bulk">
         <span id="r-bulk-text"></span>
         <div class="btn-wrap">
-          <button class="btn btn--small" id="r-night-on" type="button">모두 신청으로</button>
-          <button class="btn btn--small" id="r-night-off" type="button">모두 신청 취소</button>
+          <select class="select select--small" id="r-bulk-day" aria-label="요일"></select>
+          <button class="btn btn--small" id="r-night-on" type="button">신청으로</button>
+          <button class="btn btn--small" id="r-night-off" type="button">신청 취소</button>
           <button class="btn btn--small btn--danger" id="r-del" type="button">모두 지우기</button>
         </div>
       </div>
@@ -160,6 +165,7 @@
           <button data-f="move" type="button">이동</button>
           <button data-f="out" type="button">외출</button>
           <button data-f="release" type="button">반납</button>
+          <button data-f="excuse" type="button">결석</button>
         </div>
       </div>
       <ul class="log" id="log"></ul>
@@ -171,8 +177,10 @@
       <div class="range">
         <label for="h-from">시작<input type="date" id="h-from"></label>
         <label for="h-to">끝<input type="date" id="h-to"></label>
+        <button class="btn btn--small" id="h-stats" type="button">통계 보기</button>
         <button class="btn btn--small btn--primary" id="h-csv" type="button">출석부 내려받기</button>
       </div>
+      <div class="pstats" id="h-pstats" hidden></div>
       <ul class="days" id="h-days"></ul>
     </div>
   </section>
@@ -190,9 +198,23 @@
         <div class="daypick" id="f-days"></div>
       </div>
       <label class="toggle" for="f-demo"><span>시간과 상관없이 배정받게 하기<small>시연할 때 켜 두세요</small></span><input type="checkbox" id="f-demo"></label>
+      <label class="toggle" for="f-auto"><span>끝나면 남은 자리 반납하기<small>끝나는 시각이 지나면 모두 반납으로 기록해요. 시연 모드에서는 안 해요</small></span><input type="checkbox" id="f-auto"></label>
+      <label class="toggle" for="f-fixed"><span>지정석은 주인만 앉게 하기<small>주인이 그날 신청 안 했거나 결석이면 다른 학생도 앉을 수 있어요</small></span><input type="checkbox" id="f-fixed"></label>
+      <label for="f-notice">키오스크 공지<input type="text" id="f-notice" maxlength="80" placeholder="예: 오늘은 9시 30분에 끝나요"></label>
       <label for="f-hook">배정 알림을 보낼 주소<input type="url" id="f-hook" placeholder="https://"></label>
       <label for="f-public">QR로 열릴 내 자리 주소<input type="url" id="f-public" placeholder="비워 두면 지금 주소를 써요"></label>
       <button class="btn btn--primary" id="f-save" type="button">저장하기</button>
+    </div>
+
+    <div class="card form">
+      <h3 class="card__h">쉬는 날</h3>
+      <p class="muted">시험 기간이나 행사처럼 야자를 안 하는 날을 넣어 두면 그날은 배정받지 않아요</p>
+      <div class="offadd">
+        <input type="date" id="off-date" aria-label="날짜">
+        <input type="text" id="off-label" maxlength="20" placeholder="이유 (예: 중간고사)" aria-label="이유">
+        <button class="btn btn--small" id="off-add" type="button">더하기</button>
+      </div>
+      <ul class="offlist" id="off-list"></ul>
     </div>
 
     <div class="card form">
@@ -251,6 +273,20 @@
   </div>
 </div>
 
+<!-- 하나 고르기 -->
+<div class="sheet-wrap" id="choose">
+  <div class="sheet">
+    <h3 id="choose-title"></h3>
+    <p id="choose-sub"></p>
+    <div class="choose-list" id="choose-list"></div>
+    <div class="choose-custom" id="choose-custom" hidden>
+      <input type="text" id="choose-input" maxlength="40">
+      <button class="btn btn--primary" id="choose-ok" type="button">적을게요</button>
+    </div>
+    <button class="btn btn--text" id="choose-cancel" type="button">닫기</button>
+  </div>
+</div>
+
 <!-- 학생 더하기, 고치기 -->
 <div class="sheet-wrap" id="stu">
   <form class="sheet" id="stu-form" autocomplete="off">
@@ -258,7 +294,11 @@
     <div class="form form--sheet">
       <label for="stu-id">학번<input type="text" id="stu-id" inputmode="numeric" maxlength="12" placeholder="예: 20105"></label>
       <label for="stu-name">이름<input type="text" id="stu-name" maxlength="30"></label>
-      <label class="toggle" for="stu-night"><span>야자 신청</span><input type="checkbox" id="stu-night"></label>
+      <div class="field">
+        <span class="field__label">야자 신청 요일</span>
+        <div class="daypick" id="stu-days"></div>
+      </div>
+      <label for="stu-seat">지정석<input type="text" id="stu-seat" inputmode="numeric" maxlength="4" placeholder="없으면 비워 두세요"></label>
     </div>
     <p class="sheet__err" id="stu-err"></p>
     <div class="btn-row">
