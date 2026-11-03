@@ -223,6 +223,8 @@
     } catch (e) { if (e.message !== 'auth') toast('서버에 연결하지 못했어요'); }
   }
 
+  const dateShort = (k) => { const d = Core.dateOf(k); return (d.getMonth() + 1) + '/' + d.getDate() + '(' + Core.DAY_NAMES[d.getDay()] + ')'; };
+
   /* ---------- 탭 ---------- */
   function setTab(t) {
     tab = t;
@@ -245,7 +247,8 @@
     const excusedList = st.roster.filter((s) => excused[s.id]);
     const extra = st.roster.filter((s) => !nightIds.has(s.id) && seated.has(s.id));
     const out = Object.keys(st.seats).filter((k) => st.seats[k].out).map((k) => Object.assign({ seat: Number(k) }, st.seats[k]));
-    return { st, seated, night, nightIds, absent, excused: excusedList, extra, out };
+    const late = Object.values(st.seats).filter((x) => x.late);
+    return { st, seated, night, nightIds, absent, excused: excusedList, extra, out, late };
   }
 
   function render() {
@@ -282,7 +285,8 @@
     go.textContent = c.absent.length ? '아직 안 온 학생 ' + c.absent.length + '명' : '신청한 학생이 모두 왔어요';
     go.classList.toggle('is-warn', c.absent.length > 0);
     const extra = [];
-    if (c.excused.length) extra.push('사유 결석 ' + c.excused.length + '명');
+    if (c.excused.length) extra.push('못 오는 학생 ' + c.excused.length + '명');
+    if (c.late.length) extra.push('지각 ' + c.late.length + '명');
     if (c.out.length) extra.push('외출 중 ' + c.out.length + '명');
     if (c.extra.length) extra.push('신청 안 하고 온 학생 ' + c.extra.length + '명');
     $('sum-extra').textContent = extra.join(', ');
@@ -299,6 +303,7 @@
         if (no === selSeat) el.classList.add('is-selected');
         if (assigning && !occ && !Core.isClosed(st, no)) el.classList.add('is-target');
         if (occ && Date.now() - new Date(occ.at) < RECENT_MS) el.classList.add('is-new');
+        if (occ && occ.late && !occ.out) { const t = document.createElement('span'); t.className = 'seat__tag seat__tag--late'; t.textContent = '지각'; el.appendChild(t); }
       },
       onSeat(no, occ) {
         if (assigning) {
@@ -348,13 +353,13 @@
   }
   function drawHistory(box, h) {
     const icon = { came: 'O', early: '조', absent: 'X', excused: '사' };
-    box.innerHTML = '<div class="hist__h">최근 4주 <b>' + h.came + '일 출석</b>' + (h.absent ? ', 결석 ' + h.absent + '일' : '') + (h.excused ? ', 사유 결석 ' + h.excused + '일' : '') + '</div>'
+    box.innerHTML = '<div class="hist__h">최근 4주 <b>' + h.came + '일 출석</b>' + (h.absent ? ', 결석 ' + h.absent + '일' : '') + (h.excused ? ', 이유 있는 결석 ' + h.excused + '일' : '') + '</div>'
       + (h.days.length ? '<div class="hist__dots">' + h.days.slice(0, 20).reverse().map((d) => '<span class="hd hd--' + d.status + '" title="' + d.day + (d.reason ? ' ' + esc(d.reason) : '') + '">' + icon[d.status] + '<small>' + Number(d.day.slice(8)) + '</small></span>').join('') + '</div>' : '<p class="muted">아직 기록이 없어요</p>');
   }
 
   async function excuseFlow(stu) {
     const opts = Core.REASONS.map((r) => ({ value: r, label: r })).concat({ value: '', label: '직접 적을게요', custom: true });
-    const reason = await choose(stu.name + '님은 왜 못 오나요?', '사유 있는 결석은 결석과 따로 세요', opts);
+    const reason = await choose(stu.name + '님은 왜 못 오나요?', '이유가 있으면 결석과 따로 세요', opts);
     if (!reason) return;
     const r = await teacher({ type: 'excuse', id: stu.id, reason });
     toast(r.ok ? stu.name + '님을 ' + reason + '(으)로 적었어요' : r.error);
@@ -374,9 +379,11 @@
     const exc = (st.excused || {})[stu.id];
     const hist = st.log.filter((l) => l.id === stu.id);
     const todayApplied = Core.applied(stu, Core.dateOf(st.day));
-    const rows = [['자리', seat !== null ? seat + '번' + (occ.out ? ' (외출 중)' : '') : exc ? '사유 결석 (' + esc(exc.reason) + ')' : todayApplied ? '아직 안 왔어요' : '오늘은 신청 안 했어요']];
+    const rows = [['자리', seat !== null ? seat + '번' + (occ.out ? ' (외출 중)' : '') : exc ? '못 와요 (' + esc(exc.reason) + (exc.by === 'student' ? ', 학생이 알림' : '') + ')' : todayApplied ? '아직 안 왔어요' : '오늘은 신청 안 했어요']];
+    const plans = (st.planned || []).filter((p) => p.id === stu.id);
+    if (plans.length) rows.push(['미리 알림', plans.map((p) => dateShort(p.date) + ' ' + esc(p.reason)).join(', ')]);
     if (occ) {
-      rows.push(['들어온 시각', hm(occ.at)]);
+      rows.push(['들어온 시각', hm(occ.at) + (occ.late ? ' (지각)' : '')]);
       rows.push(['있었던 시간', length(Math.floor((Date.now() - new Date(occ.at)) / 60000))]);
       if (occ.out) rows.push(['나간 시각', hm(occ.out)]);
     }
@@ -400,8 +407,8 @@
       const list = [];
       if (fixedFree) list.push([stu.seat + '번에 앉히기', 'btn--primary', () => doAssign(stu.id, stu.seat)]);
       list.push(['자리 정해 주기', fixedFree ? '' : 'btn--primary', () => startAssign(stu.id)]);
-      if (exc) list.push(['결석 취소', '', async () => { const r = await act({ type: 'unexcuse', id: stu.id }); toast(r.ok ? '결석을 지웠어요' : r.error); }]);
-      else list.push(['사유 결석', '', () => excuseFlow(stu)]);
+      if (exc) list.push(['못 와요 취소', '', async () => { const r = await act({ type: 'unexcuse', id: stu.id }); toast(r.ok ? '취소했어요' : r.error); }]);
+      else list.push(['못 온다고 적기', '', () => excuseFlow(stu)]);
       list.push(edit);
       actionButtons(box, list);
       return;
@@ -455,7 +462,8 @@
     const who = l.by === 'teacher' ? ' (감독)' : '';
     if (l.type === 'move') return (l.from ? l.from + '번에서 ' : '') + l.seat + '번으로 옮겼어요' + who;
     if (l.type === 'release') return l.note === 'early' ? '조퇴했어요' + who : l.note === 'auto' ? '끝나서 ' + l.seat + '번을 자동으로 반납했어요' : l.seat + '번을 반납했어요' + who;
-    if (l.type === 'excuse') return '사유 결석 (' + esc(l.note || '') + ')';
+    if (l.type === 'excuse') return (l.by === 'student' ? '못 온다고 알렸어요' : '못 오는 학생으로 적었어요') + ' (' + esc(l.note || '') + ')';
+    if (l.type === 'assign' && l.note === 'late') return l.seat + '번에 앉았어요 (지각)' + who;
     if (l.type === 'out') return '외출했어요' + who;
     if (l.type === 'back') return '외출에서 돌아왔어요' + who;
     return l.seat + '번에 앉았어요' + who;
@@ -518,7 +526,11 @@
       + '</div></div>').join('');
     const ex = c.st.excused || {};
     $('excused-head').hidden = $('excused-card').hidden = !c.excused.length;
-    $('excused-list').innerHTML = c.excused.map((s) => '<button type="button" class="chip-btn" data-id="' + s.id + '" data-act="excused">' + esc(s.name) + '<small>' + esc(ex[s.id].reason) + '</small></button>').join('');
+    $('excused-list').innerHTML = c.excused.map((s) => '<button type="button" class="chip-btn' + (ex[s.id].by === 'student' ? ' chip-btn--student' : '') + '" data-id="' + s.id + '" data-act="excused">' + esc(s.name) + '<small>' + esc(ex[s.id].reason) + (ex[s.id].by === 'student' ? ', 학생이 알림' : '') + '</small></button>').join('');
+    const plans = c.st.planned || [];
+    $('planned-head').hidden = $('planned-card').hidden = !plans.length;
+    $('planned-list').innerHTML = plans.map((p) => '<li><span class="planned__d">' + dateShort(p.date) + '</span><span><b>' + esc(p.name) + '</b> <small>' + p.id + '</small></span><span class="muted">' + esc(p.reason) + (p.by === 'student' ? ', 학생이 알림' : '') + '</span>'
+      + '<button type="button" class="btn btn--small btn--ghost" data-plan-id="' + p.id + '" data-plan-date="' + p.date + '">취소</button></li>').join('');
     $('out-head').hidden = !c.out.length;
     $('out-list').parentElement.hidden = !c.out.length;
     $('out-list').innerHTML = c.out.map((s) => '<button type="button" class="chip-btn" data-id="' + s.id + '" data-view="1">' + esc(s.name) + '<small>' + s.seat + '번, ' + ago(s.out) + '</small></button>').join('');
@@ -527,18 +539,24 @@
       : '<p class="empty">없어요</p>';
   }
   $('t-absent').addEventListener('click', async (e) => {
-    const b = e.target.closest('button[data-id]');
+    const b = e.target.closest('button[data-id], button[data-plan-id]');
     if (!b) return;
     if (b.dataset.view) { selected = b.dataset.id; selectedSeat = null; setTab('map'); return; }
     const st = store.state;
+    if (b.dataset.planId) {
+      if (!(await ask(dateShort(b.dataset.planDate) + ' 알림을 취소할까요?', '그날 안 오면 결석으로 세요', '취소할게요'))) return;
+      const r = await teacher({ type: 'absence-cancel', id: b.dataset.planId, date: b.dataset.planDate });
+      toast(r.ok ? '알림을 취소했어요' : r.error);
+      return;
+    }
     const stu = Core.findStudent(st, b.dataset.id);
     if (!stu) return;
     if (b.dataset.act === 'excused') {
-      const v = await choose(stu.name + '님', (st.excused[stu.id] || {}).reason + '(으)로 적어 뒀어요', [
-        { value: 'undo', label: '결석 취소하기', sub: '다시 안 온 학생으로 돌아가요' },
+      const v = await choose(stu.name + '님', (st.excused[stu.id] || {}).reason + '(으)로 ' + ((st.excused[stu.id] || {}).by === 'student' ? '학생이 알렸어요' : '적어 뒀어요'), [
+        { value: 'undo', label: '못 와요 취소하기', sub: '다시 안 온 학생으로 돌아가요' },
         { value: 'seat', label: '자리 정해 주기' }
       ]);
-      if (v === 'undo') { const r = await act({ type: 'unexcuse', id: stu.id }); toast(r.ok ? '결석을 지웠어요' : r.error); }
+      if (v === 'undo') { const r = await act({ type: 'unexcuse', id: stu.id }); toast(r.ok ? '취소했어요' : r.error); }
       if (v === 'seat') startAssign(stu.id);
       return;
     }
@@ -546,7 +564,7 @@
     const opts = [];
     if (fixedFree) opts.push({ value: 'fixed', label: stu.seat + '번 지정석에 앉히기' });
     opts.push({ value: 'seat', label: '자리 정해 주기', sub: '배치도에서 골라요' });
-    opts.push({ value: 'excuse', label: '사유 있는 결석으로 적기', sub: Core.REASONS.join(', ') + ' 등' });
+    opts.push({ value: 'excuse', label: '못 온다고 적기', sub: Core.REASONS.join(', ') + ' 등' });
     const v = await choose(stu.name + '님을 어떻게 할까요?', fullClass(stu.id), opts);
     if (v === 'fixed') doAssign(stu.id, stu.seat);
     else if (v === 'seat') startAssign(stu.id);
@@ -609,7 +627,9 @@
       const ex = (st.excused || {})[s.id];
       return '<tr><td class="num">' + s.id + '</td><td>' + esc(s.name) + '</td><td>' + dayChips(s) + '</td>'
         + '<td class="num">' + (s.seat ? s.seat + '번' : '<span class="muted">없음</span>') + '</td>'
-        + '<td class="num">' + (seat !== undefined ? seat + '번' : ex ? '<span class="muted">' + esc(ex.reason) + '</span>' : '<span class="muted">없음</span>') + '</td>'
+        + '<td>' + (seat !== undefined ? '<button type="button" class="btn btn--small btn--ghost" data-show="' + s.id + '">' + seat + '번</button>'
+          : ex ? '<span class="muted">' + esc(ex.reason) + '</span> <button type="button" class="btn btn--small btn--ghost" data-assign="' + s.id + '">정해 주기</button>'
+          : '<button type="button" class="btn btn--small btn--ghost" data-assign="' + s.id + '">정해 주기</button>') + '</td>'
         + '<td class="t-r"><button type="button" class="btn btn--small btn--ghost" data-edit="' + s.id + '">고치기</button></td></tr>';
     }).join('') : '<tr><td colspan="6" class="empty-row">찾는 학생이 없어요</td></tr>';
     $('r-more').innerHTML = list.length > shown.length ? '<button type="button" class="btn btn--small" id="r-more-btn">' + (list.length - shown.length) + '명 더 보기</button>' : '';
@@ -635,6 +655,10 @@
       if (!r.ok) { dayBtn.classList.toggle('is-on', !on); toast(r.error); }
       return;
     }
+    const asg = e.target.closest('button[data-assign]');
+    if (asg) { startAssign(asg.dataset.assign); window.scrollTo(0, 0); return; }
+    const shw = e.target.closest('button[data-show]');
+    if (shw) { selected = shw.dataset.show; selectedSeat = null; setTab('map'); window.scrollTo(0, 0); return; }
     const b = e.target.closest('button[data-edit]');
     if (b) openStudent(b.dataset.edit);
   });
@@ -846,7 +870,7 @@
     const rows = st.log.filter((l) => logFilter === 'all' || l.type === logFilter || (logFilter === 'out' && l.type === 'back'));
     $('log-filter').querySelector('[data-f=excuse]').hidden = !st.log.some((l) => l.type === 'excuse');
     $('log').innerHTML = rows.length
-      ? rows.slice(0, 300).map((l) => '<li><time>' + hm(l.at) + '</time><span><b>' + esc(l.name) + '</b><small>' + l.id + '</small> ' + logText(l).replace(' (감독)', '') + '</span><span class="by">' + ({ teacher: '감독', auto: '자동' }[l.by] || '키오스크') + '</span></li>').join('')
+      ? rows.slice(0, 300).map((l) => '<li><time>' + hm(l.at) + '</time><span><b>' + esc(l.name) + '</b><small>' + l.id + '</small> ' + logText(l).replace(' (감독)', '') + '</span><span class="by">' + ({ teacher: '감독', auto: '자동', student: '학생' }[l.by] || '키오스크') + '</span></li>').join('')
       : '<li><span></span><span class="empty">기록이 없어요</span></li>';
   }
   $('log-filter').addEventListener('click', (e) => {
@@ -869,7 +893,7 @@
       const j = await (await api('api/history')).json();
       $('h-days').innerHTML = j.days.length ? j.days.slice(0, 60).map((d) =>
         '<li><span class="days__d">' + dayLabel(d.day) + (d.day === store.state.day ? ' <small>오늘</small>' : '') + '</span>'
-        + '<span class="days__n">신청 ' + d.night + '명 중 ' + d.came + '명 출석' + (d.absent ? ', 결석 ' + d.absent + '명' : '') + (d.excused ? ', 사유 결석 ' + d.excused + '명' : '') + (d.early ? ', 조퇴 ' + d.early + '명' : '') + (d.extra ? ', 신청 안 하고 온 학생 ' + d.extra + '명' : '') + '</span>'
+        + '<span class="days__n">신청 ' + d.night + '명 중 ' + d.came + '명 출석' + (d.absent ? ', 결석 ' + d.absent + '명' : '') + (d.excused ? ', 못 오는 학생 ' + d.excused + '명' : '') + (d.late ? ', 지각 ' + d.late + '명' : '') + (d.early ? ', 조퇴 ' + d.early + '명' : '') + (d.extra ? ', 신청 안 하고 온 학생 ' + d.extra + '명' : '') + '</span>'
         + '<button type="button" class="btn btn--small" data-day="' + d.day + '">내려받기</button></li>').join('')
         : '<li class="empty">아직 지난 기록이 없어요. 야자가 끝난 다음 날부터 하루씩 쌓여요</li>';
     } catch (e) { if (e.message !== 'auth') $('h-days').innerHTML = '<li class="empty">기록을 불러오지 못했어요</li>'; }
@@ -892,7 +916,7 @@
       const rateRow = (label, x) => '<li><span>' + label + '</span><div class="rates__bar"><span style="width:' + (x.night ? x.came / x.night * 100 : 0) + '%"></span></div><span class="rates__n">' + pct(x.came, x.night) + '</span></li>';
       const dayRows = [1, 2, 3, 4, 5, 6, 0].filter((d) => j.byDay[d]).map((d) => rateRow(Core.DAY_NAMES[d] + '요일', j.byDay[d])).join('');
       const clsRows = Object.keys(j.byClass).sort().map((k) => rateRow(/^\d{3}$/.test(k) ? k[0] + '-' + Number(k.slice(1)) + '반' : k, j.byClass[k])).join('');
-      box.innerHTML = '<div class="pstats__sum"><div><b>' + j.days + '일</b><span>기록한 날</span></div><div><b>' + pct(t.came, t.night) + '</b><span>출석률</span></div><div><b>' + t.absent + '번</b><span>결석</span></div><div><b>' + t.excused + '번</b><span>사유 결석</span></div></div>'
+      box.innerHTML = '<div class="pstats__sum"><div><b>' + j.days + '일</b><span>기록한 날</span></div><div><b>' + pct(t.came, t.night) + '</b><span>출석률</span></div><div><b>' + t.absent + '번</b><span>결석</span></div><div><b>' + t.excused + '번</b><span>이유 있는 결석</span></div></div>'
         + '<div class="pstats__grid"><div><h4>요일별 출석률</h4><ul class="rates">' + dayRows + '</ul></div><div><h4>반별 출석률</h4><ul class="rates rates--scroll">' + clsRows + '</ul></div>'
         + '<div><h4>결석이 많은 학생</h4>' + (j.absentTop.length ? '<ol class="toplist">' + j.absentTop.map((x) => '<li><button type="button" data-id="' + x.id + '">' + esc(x.name) + '<small>' + x.id + '</small></button><span>' + x.n + '번</span></li>').join('') + '</ol>' : '<p class="empty">없어요</p>') + '</div></div>';
     } catch (e) { if (e.message !== 'auth') toast('통계를 불러오지 못했어요'); }
@@ -938,6 +962,9 @@
     $('f-auto').checked = s.autoRelease !== false;
     $('f-fixed').checked = s.fixedOnly !== false;
     $('f-notice').value = s.notice || '';
+    $('f-late').value = String(s.lateMin === undefined ? 10 : s.lateMin);
+    if (!$('f-late').value) $('f-late').value = '10';
+    drawAwayLink();
     drawOffDates();
     $('f-hook').value = s.webhookUrl || '';
     $('f-public').value = s.publicUrl || '';
@@ -945,6 +972,27 @@
     if (!$('f-lock').value) $('f-lock').value = '10';
     renderSettingsInfo();
   }
+  /* 학생이 못 온다고 알리는 주소와 QR */
+  function awayUrl() {
+    const base = store.state.settings.publicUrl || location.href.replace(/[^/]*(\?.*)?(#.*)?$/, '');
+    return base.replace(/\/?$/, '/') + 'away.html';
+  }
+  function drawAwayLink() {
+    const url = awayUrl();
+    $('away-url').textContent = url;
+    $('away-link').href = url;
+    try {
+      const qr = window.qrcode(0, 'M');
+      qr.addData(url);
+      qr.make();
+      $('away-qr').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+    } catch (e) { $('away-qr').innerHTML = ''; }
+  }
+  $('away-copy').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(awayUrl()); toast('주소를 복사했어요'); }
+    catch (e) { toast('복사하지 못했어요. 주소를 길게 눌러 복사해 주세요'); }
+  });
+
   /* 쉬는 날 */
   const dateText = (k) => { const d = Core.dateOf(k); return (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' + Core.DAY_NAMES[d.getDay()] + '요일'; };
   function drawOffDates() {
@@ -983,7 +1031,7 @@
     if (hook && !/^https?:\/\//.test(hook)) { toast('알림 주소는 http로 시작해야 해요'); return; }
     if (pub && !/^https?:\/\//.test(pub)) { toast('내 자리 주소는 http로 시작해야 해요'); return; }
     const res = await act({ type: 'settings', settings: { nightStart: start, nightEnd: end, days: days.slice().sort(), demoMode: $('f-demo').checked,
-      autoRelease: $('f-auto').checked, fixedOnly: $('f-fixed').checked, notice: $('f-notice').value.trim(), webhookUrl: hook, publicUrl: pub } });
+      autoRelease: $('f-auto').checked, fixedOnly: $('f-fixed').checked, notice: $('f-notice').value.trim(), lateMin: Number($('f-late').value), webhookUrl: hook, publicUrl: pub } });
     toast(res.ok ? '저장했어요' : res.error);
     if (res.ok) fillSettings();
   });

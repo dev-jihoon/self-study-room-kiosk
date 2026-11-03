@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>야자에 못 가요</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  body { height: auto; min-height: 100%; user-select: text; }
+  .away { max-width: 480px; margin: 0 auto; padding: 28px 20px 40px; display: flex; flex-direction: column; gap: 14px; }
+  .away__label { margin: 0; font-size: 15px; font-weight: 600; color: var(--gray500); }
+  .away h1 { margin: 0 0 8px; font-size: 26px; line-height: 1.35; }
+  .away p { margin: 0; font-size: 16px; color: var(--gray600); line-height: 1.5; }
+  .away input { width: 100%; height: 56px; border-radius: 14px; border: 0; background: var(--gray100); padding: 0 16px; font: inherit; font-size: 18px; color: var(--gray900); }
+  .away input:focus { outline: 2px solid var(--blue); }
+  .away .btn { width: 100%; }
+  .away .err { color: var(--red); min-height: 22px; font-size: 15px; }
+  .opts { display: flex; flex-direction: column; gap: 8px; }
+  .opt { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 60px; padding: 0 18px; border-radius: 16px; background: var(--gray50); box-shadow: inset 0 0 0 1px var(--gray200); font-size: 17px; font-weight: 600; text-align: left; }
+  .opt small { font-size: 14px; font-weight: 500; color: var(--gray500); }
+  .opt.is-done small { color: var(--blue); }
+  .opt:active { background: var(--blue-soft); }
+  .mine { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .mine li { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-radius: 14px; background: var(--gray50); font-size: 16px; }
+  .mine button { color: var(--red); font-size: 15px; font-weight: 600; padding: 6px; }
+  .step { display: none; flex-direction: column; gap: 14px; }
+  .step.is-on { display: flex; }
+</style>
+</head>
+<body>
+<main class="away">
+  <p class="away__label">자기주도학습실</p>
+
+  <section class="step is-on" id="st-who">
+    <h1>누가 못 오나요?</h1>
+    <input id="f-id" inputmode="numeric" maxlength="12" placeholder="학번" autocomplete="off" aria-label="학번">
+    <input id="f-name" maxlength="30" placeholder="이름 (명단에 있는 그대로)" autocomplete="off" aria-label="이름">
+    <p class="err" id="who-err"></p>
+    <button class="btn btn--primary" id="who-next" type="button">다음</button>
+  </section>
+
+  <section class="step" id="st-when">
+    <h1 id="when-title">언제 못 오나요?</h1>
+    <div class="opts" id="when-list"></div>
+    <button class="btn btn--text" data-back="who" type="button">처음으로</button>
+  </section>
+
+  <section class="step" id="st-why">
+    <h1 id="why-title">왜 못 오나요?</h1>
+    <div class="opts" id="why-list"></div>
+    <div id="why-custom" hidden>
+      <input id="f-why" maxlength="40" placeholder="이유를 짧게 적어 주세요" aria-label="이유">
+      <p class="err" id="why-err"></p>
+      <button class="btn btn--primary" id="why-ok" type="button">알릴게요</button>
+    </div>
+    <button class="btn btn--text" data-back="when" type="button">날짜 다시 고르기</button>
+  </section>
+
+  <section class="step" id="st-done">
+    <h1 id="done-title">감독 선생님께 알렸어요</h1>
+    <p id="done-sub"></p>
+    <ul class="mine" id="mine"></ul>
+    <button class="btn" data-back="when" type="button">다른 날도 알리기</button>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script src="js/core.js"></script>
+<script src="js/store.js"></script>
+<script>
+(async function () {
+  'use strict';
+  const Core = window.KioskCore;
+  const $ = (id) => document.getElementById(id);
+  const store = await window.KioskStore.open();
+  let me = null, name = '', date = '';
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const label = (k) => { const d = Core.dateOf(k); return (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' + Core.DAY_NAMES[d.getDay()] + '요일'; };
+
+  function toast(text) {
+    const t = $('toast');
+    t.textContent = text;
+    t.className = 'toast is-show';
+    clearTimeout(t._h);
+    t._h = setTimeout(() => { t.className = 'toast'; }, 2400);
+  }
+  function step(n) {
+    document.querySelectorAll('.step').forEach((s) => s.classList.toggle('is-on', s.id === 'st-' + n));
+    window.scrollTo(0, 0);
+  }
+  document.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', () => { if (b.dataset.back === 'when') renderWhen(); step(b.dataset.back); }));
+
+  /* 지금까지 알린 날 (오늘은 사유 결석, 뒤의 날은 미리 알림) */
+  function mine() {
+    const st = store.state;
+    const list = [];
+    const ex = st.excused[me.id];
+    if (ex) list.push({ date: st.day, reason: ex.reason });
+    st.planned.filter((p) => p.id === me.id).forEach((p) => list.push({ date: p.date, reason: p.reason }));
+    return list;
+  }
+
+  /* 1. 학번과 이름 */
+  try { const saved = JSON.parse(localStorage.getItem('study-room-kiosk/away') || 'null'); if (saved) { $('f-id').value = saved.id; $('f-name').value = saved.name; } } catch (e) {}
+  $('who-next').addEventListener('click', () => {
+    const id = $('f-id').value.trim();
+    name = $('f-name').value.trim();
+    const s = Core.findStudent(store.state, id);
+    if (!s || s.name.toLowerCase() !== name.toLowerCase()) { $('who-err').textContent = '학번과 이름이 맞지 않아요'; return; }
+    $('who-err').textContent = '';
+    me = s;
+    try { localStorage.setItem('study-room-kiosk/away', JSON.stringify({ id, name })); } catch (e) {}
+    renderWhen();
+    step('when');
+  });
+  $('f-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('who-next').click(); });
+
+  /* 2. 날짜: 오늘부터 2주 안에서 신청한 날만 */
+  function renderWhen() {
+    const st = store.state;
+    $('when-title').textContent = me.name + '님, 언제 못 오나요?';
+    const done = new Map(mine().map((x) => [x.date, x.reason]));
+    const days = [];
+    for (let i = 0; i < 14 && days.length < 8; i++) {
+      const k = Core.addDays(st.day, i);
+      const d = Core.dateOf(k);
+      if (!Core.applied(me, d) || !Core.isNightDay(st, d)) continue;
+      days.push(k);
+    }
+    $('when-list').innerHTML = days.length ? days.map((k, i) => {
+      const r = done.get(k);
+      return '<button type="button" class="opt' + (r ? ' is-done' : '') + '" data-date="' + k + '">' + (k === st.day ? '오늘' : i === 1 && k === Core.addDays(st.day, 1) ? '내일' : '') + ' ' + label(k) + '<small>' + (r ? esc(r) + '(으)로 알렸어요' : '') + '</small></button>';
+    }).join('') : '<p>앞으로 2주 동안 신청한 야자가 없어요</p>';
+  }
+  $('when-list').addEventListener('click', async (e) => {
+    const b = e.target.closest('button[data-date]');
+    if (!b) return;
+    date = b.dataset.date;
+    if (b.classList.contains('is-done')) {
+      if (!confirm(label(date) + '에 알린 것을 취소할까요?')) return;
+      const r = await store.dispatch({ type: 'absence-cancel', id: me.id, name, date });
+      toast(r.ok ? '취소했어요' : r.error);
+      renderWhen();
+      return;
+    }
+    $('why-title').textContent = label(date) + '에 왜 못 오나요?';
+    $('why-list').innerHTML = Core.REASONS.map((r) => '<button type="button" class="opt" data-r="' + esc(r) + '">' + esc(r) + '</button>').join('') + '<button type="button" class="opt" data-custom="1">직접 적을게요</button>';
+    $('why-custom').hidden = true;
+    step('why');
+  });
+
+  /* 3. 이유 */
+  async function report(reason) {
+    const r = await store.dispatch({ type: 'absence-report', id: me.id, name, date, reason });
+    if (!r.ok) { toast(r.error); return; }
+    $('done-sub').textContent = label(date) + ', ' + reason;
+    $('mine').innerHTML = mine().map((x) => '<li><span>' + label(x.date) + ' <small class="muted">' + esc(x.reason) + '</small></span><button type="button" data-cancel="' + x.date + '">취소</button></li>').join('');
+    step('done');
+  }
+  $('why-list').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.custom) { $('why-custom').hidden = false; $('f-why').focus(); return; }
+    report(b.dataset.r);
+  });
+  $('why-ok').addEventListener('click', () => { const v = $('f-why').value.trim(); if (!v) { $('why-err').textContent = '이유를 적어 주세요'; return; } report(v); });
+  $('mine').addEventListener('click', async (e) => {
+    const b = e.target.closest('button[data-cancel]');
+    if (!b) return;
+    const r = await store.dispatch({ type: 'absence-cancel', id: me.id, name, date: b.dataset.cancel });
+    if (!r.ok) { toast(r.error); return; }
+    b.closest('li').remove();
+    toast('취소했어요');
+  });
+})();
+</script>
+</body>
+</html>

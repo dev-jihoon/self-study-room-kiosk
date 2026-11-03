@@ -12,6 +12,7 @@
   let doneTimer = null;
   let inputBuf = '';
   let pendingSeat = null;
+  let awayMode = false;     // '오늘 야자에 못 가요'를 누르고 학번을 받는 중
 
   function show(name) {
     screen = name;
@@ -23,6 +24,7 @@
 
   function reset() {
     current = null;
+    setAway(false);
     pendingSeat = null;
     clearInterval(doneTimer);
     closeSheet();
@@ -44,6 +46,11 @@
   /* 처음 화면 문구는 운영 시간에 따라 바뀐다 */
   function renderIdle() {
     const st = store.state;
+    if (awayMode) {
+      $('idle-title').innerHTML = '못 가는 학생의<br>학생증을 찍어 주세요';
+      $('idle-sub').textContent = '학번을 눌러도 돼요';
+      return;
+    }
     if (Core.kioskOpen(st)) {
       $('idle-title').innerHTML = '학생증을<br>찍어 주세요';
       $('idle-sub').textContent = '바코드가 카메라에 보이게 대 주세요';
@@ -103,6 +110,7 @@
     if (!st) { setInput(''); show('idle'); toast('등록되지 않은 학번이에요'); return; }
     current = st;
     setInput('');
+    if (awayMode) { renderAway(); show('away'); return; }
     const seat = Core.seatOf(store.state, st.id);
     const open = Core.kioskOpen(store.state);
     if (seat === null && open) {
@@ -304,6 +312,54 @@
   function cancelScan() { stopCamera(); show('idle'); }
 
   $('scan-open').addEventListener('click', () => { show('scan'); startCamera(); });
+
+  /* 오늘 야자에 못 가요: 학번을 받고 이유를 고르면 사유 결석으로 알린다 */
+  function setAway(on) {
+    awayMode = on;
+    $('away-open').hidden = on;
+    $('away-cancel').hidden = !on;
+    $('s-idle').classList.toggle('is-away', on);
+    renderIdle();
+  }
+  $('away-open').addEventListener('click', () => setAway(true));
+  $('away-cancel').addEventListener('click', () => setAway(false));
+  $('away-home').addEventListener('click', reset);
+  function renderAway() {
+    const st = store.state;
+    const seat = Core.seatOf(st, current.id);
+    const ex = st.excused[current.id];
+    $('away-title').innerHTML = esc(current.name) + '님,<br>' + (ex ? '이미 ' + esc(ex.reason) + '(으)로 알렸어요' : '왜 못 오나요?');
+    const box = $('away-reasons');
+    box.innerHTML = '';
+    if (seat !== null) {
+      $('away-title').innerHTML = esc(current.name) + '님은 지금<br>' + seat + '번에 앉아 있어요';
+      box.appendChild(button('반납하기', 'btn--primary', release));
+      return;
+    }
+    if (ex) {
+      box.appendChild(button('알린 것 취소하기', '', async () => {
+        const r = await store.dispatch({ type: 'absence-cancel', id: current.id });
+        if (!r.ok) { toast(r.error); return; }
+        finishAway('취소했어요', '오늘 오면 자리를 받을 수 있어요');
+      }));
+      return;
+    }
+    Core.REASONS.concat('그 밖의 사유').forEach((reason) => {
+      box.appendChild(button(reason, '', async () => {
+        const r = await store.dispatch({ type: 'absence-report', id: current.id, reason });
+        if (!r.ok) { toast(r.error); return; }
+        finishAway('감독 선생님께 알렸어요', '오늘은 푹 쉬어요');
+      }));
+    });
+  }
+  function finishAway(title, sub) {
+    $('done-title').textContent = title;
+    $('done-sub').textContent = sub;
+    $('done-sub').hidden = false;
+    $('done-qr-box').hidden = true;
+    show('done');
+    countdown(5);
+  }
   $('scan-cancel').addEventListener('click', cancelScan);
   $('scan-flip').addEventListener('click', () => {
     facing = facing === 'user' ? 'environment' : 'user';

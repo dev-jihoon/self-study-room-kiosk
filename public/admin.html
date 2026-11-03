@@ -84,9 +84,15 @@
     </div>
     <div class="classes" id="absent-classes"></div>
     <div class="tab__head tab__head--sub" id="excused-head">
-      <h2>사유 있는 결석</h2>
+      <h2>오늘 못 오는 학생</h2>
+      <p>학생이 알렸거나 감독이 사유를 적은 학생이에요</p>
     </div>
     <div class="card" id="excused-card"><div class="chips" id="excused-list"></div></div>
+    <div class="tab__head tab__head--sub" id="planned-head">
+      <h2>미리 알린 학생</h2>
+      <p>그날이 되면 저절로 못 오는 학생으로 옮겨져요</p>
+    </div>
+    <div class="card" id="planned-card"><ul class="planned" id="planned-list"></ul></div>
     <div class="tab__head tab__head--sub" id="out-head">
       <h2>외출 중인 학생</h2>
     </div>
@@ -200,10 +206,34 @@
       <label class="toggle" for="f-demo"><span>시간과 상관없이 배정받게 하기<small>시연할 때 켜 두세요</small></span><input type="checkbox" id="f-demo"></label>
       <label class="toggle" for="f-auto"><span>끝나면 남은 자리 반납하기<small>끝나는 시각이 지나면 모두 반납으로 기록해요. 시연 모드에서는 안 해요</small></span><input type="checkbox" id="f-auto"></label>
       <label class="toggle" for="f-fixed"><span>지정석은 주인만 앉게 하기<small>주인이 그날 신청 안 했거나 결석이면 다른 학생도 앉을 수 있어요</small></span><input type="checkbox" id="f-fixed"></label>
+      <label for="f-late">지각으로 셀 시간
+        <select class="select" id="f-late">
+          <option value="0">지각을 세지 않아요</option>
+          <option value="5">시작하고 5분 뒤부터</option>
+          <option value="10">시작하고 10분 뒤부터</option>
+          <option value="20">시작하고 20분 뒤부터</option>
+          <option value="30">시작하고 30분 뒤부터</option>
+        </select>
+      </label>
       <label for="f-notice">키오스크 공지<input type="text" id="f-notice" maxlength="80" placeholder="예: 오늘은 9시 30분에 끝나요"></label>
       <label for="f-hook">배정 알림을 보낼 주소<input type="url" id="f-hook" placeholder="https://"></label>
       <label for="f-public">QR로 열릴 내 자리 주소<input type="url" id="f-public" placeholder="비워 두면 지금 주소를 써요"></label>
       <button class="btn btn--primary" id="f-save" type="button">저장하기</button>
+    </div>
+
+    <div class="card form">
+      <h3 class="card__h">학생이 못 온다고 알리는 주소</h3>
+      <p class="muted">학생이 휴대폰으로 학번과 이름을 넣고, 못 오는 날과 이유를 알려요. 키오스크 처음 화면의 "오늘 야자에 못 가요"로도 알릴 수 있어요</p>
+      <div class="share">
+        <div class="share__qr" id="away-qr"></div>
+        <div class="share__text">
+          <code id="away-url"></code>
+          <div class="btn-wrap">
+            <button class="btn btn--small" id="away-copy" type="button">주소 복사하기</button>
+            <a class="btn btn--small" id="away-link" target="_blank">열어 보기</a>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="card form">
@@ -365,6 +395,7 @@
 <script src="js/store.js"></script>
 <script src="js/seatmap.js"></script>
 <script src="js/tablefile.js"></script>
+<script src="vendor/qrcode.js"></script>
 <script src="js/admin.js"></script>
 </body>
 </html>

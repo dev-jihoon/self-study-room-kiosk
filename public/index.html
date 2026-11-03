@@ -23,7 +23,11 @@
     <h1 id="idle-title">학생증을<br>찍어 주세요</h1>
     <p id="idle-sub">바코드가 카메라에 보이게 대 주세요</p>
     <p class="notice" id="notice" hidden></p>
-    <button class="btn btn--primary" id="scan-open" type="button">카메라 켜기</button>
+    <div class="idle__acts">
+      <button class="btn btn--primary" id="scan-open" type="button">카메라 켜기</button>
+      <button class="btn btn--text" id="away-open" type="button">오늘 야자에 못 가요</button>
+      <button class="btn btn--text" id="away-cancel" type="button" hidden>취소</button>
+    </div>
   </div>
   <div class="idle__side">
     <div class="idle__side-title">학번으로 할게요</div>
@@ -48,6 +52,16 @@
   <div class="btn-row">
     <button class="btn" id="scan-flip" type="button">카메라 바꾸기</button>
     <button class="btn" id="scan-cancel" type="button">취소</button>
+  </div>
+</section>
+
+<!-- 못 가는 이유 -->
+<section class="screen center" id="s-away">
+  <div class="center__inner">
+    <h2 id="away-title"></h2>
+    <p>감독 선생님 화면에 바로 보여요</p>
+    <div class="reasons" id="away-reasons"></div>
+    <button class="btn btn--text" id="away-home" type="button">처음으로</button>
   </div>
 </section>
 

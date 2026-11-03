@@ -75,7 +75,13 @@ h1, h2, h3 { letter-spacing: -0.02em; }
 .idle__main h1 { margin: 0; font-size: 44px; line-height: 1.3; font-weight: 700; }
 .idle__main p { margin: 0; font-size: 20px; color: var(--gray600); line-height: 1.5; }
 .idle__main .notice { font-size: 18px; font-weight: 600; color: var(--blue-press); background: var(--blue-soft); padding: 14px 18px; border-radius: 16px; align-self: flex-start; }
-.idle__main .btn { align-self: flex-start; height: 64px; padding: 0 36px; font-size: 20px; border-radius: 18px; }
+.idle__acts { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.idle__acts .btn--text { height: 48px; padding: 0 8px; font-size: 18px; color: var(--gray600); }
+.idle.is-away .idle__main h1 { color: var(--blue-press); }
+.reasons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; margin-top: 24px; }
+.reasons .btn { width: 100%; }
+.reasons .btn:only-child { grid-column: 1 / -1; }
+.idle__main .btn--primary { align-self: flex-start; height: 64px; padding: 0 36px; font-size: 20px; border-radius: 18px; }
 .idle__side { flex: 1; display: flex; flex-direction: column; gap: 12px; background: var(--gray50); border-radius: 28px; padding: 24px; }
 .idle__side-title { font-size: 17px; font-weight: 600; color: var(--gray600); padding: 4px 6px 0; }
 .idbox { height: 76px; display: flex; align-items: center; justify-content: center; font-size: 38px; font-weight: 700; letter-spacing: 8px; font-variant-numeric: tabular-nums; color: var(--gray900); }

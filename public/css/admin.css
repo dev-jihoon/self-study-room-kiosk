@@ -40,11 +40,13 @@ body.admin { background: var(--gray100); user-select: text; overflow: auto; heig
 .seg-tabs button { height: 40px; padding: 0 20px; border-radius: 10px; font-size: 16px; font-weight: 600; color: var(--gray600); }
 .seg-tabs button.is-on { background: var(--white); color: var(--gray900); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
 .tab { display: none; }
-.tab.is-on { display: block; }
-.tab__head { margin: 4px 4px 14px; }
+.tab.is-on { display: flex; flex-direction: column; gap: 16px; }
+/* 카드 사이 간격은 탭의 gap 하나로만 준다 */
+.tab .form, .tab .stats-grid { margin-bottom: 0; }
+.tab__head { margin: 4px 4px 0; }
 .tab__head h2 { margin: 0; font-size: 24px; }
 .tab__head p { margin: 6px 0 0; color: var(--gray500); font-size: 16px; }
-.tab__head--sub { margin-top: 28px; }
+.tab__head--sub { margin-top: 14px; }
 
 /* 좌석 */
 .board { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
@@ -108,8 +110,9 @@ body.admin { background: var(--gray100); user-select: text; overflow: auto; heig
 .empty { color: var(--gray500); font-size: 16px; margin: 0; }
 
 /* 기록 */
-.stats-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; margin-bottom: 16px; }
-.bars { display: flex; align-items: flex-end; gap: 6px; height: 220px; padding-top: 20px; overflow-x: auto; }
+.stats-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; margin-bottom: 16px; align-items: start; }
+#class-rates { max-height: 260px; overflow: auto; padding-right: 4px; }
+.bars { display: flex; align-items: flex-end; gap: 6px; height: 220px; padding: 20px 14px 0 0; overflow-x: auto; }
 .bars__col { flex: 1 0 24px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; position: relative; padding-bottom: 22px; }
 .bars__bar { width: 100%; min-height: 3px; background: var(--blue); border-radius: 6px 6px 2px 2px; }
 .bars__bar.is-zero { background: var(--gray100); }
@@ -348,4 +351,26 @@ body.admin { background: var(--gray100); user-select: text; overflow: auto; heig
   .seatmap { zoom: 1 !important; }
   .seatmap--admin { --seat-w: 22mm; --seat-h: 14mm; --gap: 1.2mm; }
   .seat { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
+/* 미리 알린 학생 */
+.planned { list-style: none; margin: 0; padding: 0; }
+.planned li { display: grid; grid-template-columns: 110px minmax(0, 1fr) minmax(0, 1.2fr) auto; gap: 12px; align-items: center; padding: 8px 0; border-top: 1px solid var(--gray100); font-size: 16px; }
+.planned li:first-child { border-top: 0; }
+.planned__d { font-weight: 600; font-variant-numeric: tabular-nums; }
+.planned small { color: var(--gray500); }
+.chip-btn--student { box-shadow: inset 0 0 0 1px var(--blue-soft); }
+.chip-btn--student small { color: var(--blue); }
+.seatmap--admin .seat__tag--late { color: var(--orange); }
+
+/* 주소 나누기 */
+.share { display: flex; gap: 20px; align-items: center; }
+.share__qr svg { display: block; width: 120px; height: 120px; }
+.share__text { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.share code { font-size: 15px; background: var(--gray100); padding: 10px 12px; border-radius: 10px; word-break: break-all; }
+.form label .select { width: 100%; }
+
+@media (max-width: 700px) {
+  .planned li { grid-template-columns: 1fr auto; }
+  .share { flex-direction: column; align-items: flex-start; }
 }

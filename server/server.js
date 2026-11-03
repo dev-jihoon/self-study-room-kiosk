@@ -251,7 +251,8 @@ function summary(rec) {
   const came = Object.keys(rec.students);
   const excused = Object.keys(rec.excused || {}).filter((id) => night.has(id)).length;
   const comeN = came.filter((id) => night.has(id)).length;
-  return { day: rec.day, night: night.size, came: comeN, excused, absent: night.size - comeN - excused, extra: came.filter((id) => !night.has(id)).length, early: came.filter((id) => rec.students[id].early).length };
+  return { day: rec.day, night: night.size, came: comeN, excused, absent: night.size - comeN - excused, extra: came.filter((id) => !night.has(id)).length,
+    early: came.filter((id) => rec.students[id].early).length, late: came.filter((id) => rec.students[id].late).length };
 }
 /* 학생 한 명의 그날 상태: came, early, excused(사유), absent, none(신청 안 함) */
 function statusOf(rec, id) {
@@ -281,19 +282,21 @@ function attendanceCsv(from, to) {
   recs.forEach((r) => Object.entries(r.names || {}).forEach(([id, n]) => { if (!names.has(id)) names.set(id, n); }));
   const ids = new Set();
   recs.forEach((r) => { r.night.forEach((id) => ids.add(id)); Object.keys(r.students).forEach((id) => ids.add(id)); Object.keys(r.excused || {}).forEach((id) => ids.add(id)); });
-  const head = ['학번', '이름'].concat(recs.map((r) => r.day.slice(5).replace('-', '/') + '(' + Core.DAY_NAMES[Core.dateOf(r.day).getDay()] + ')'), ['출석', '결석', '사유 결석', '조퇴', '출석률']);
+  const head = ['학번', '이름'].concat(recs.map((r) => r.day.slice(5).replace('-', '/') + '(' + Core.DAY_NAMES[Core.dateOf(r.day).getDay()] + ')'), ['출석', '결석', '사유 결석', '지각', '조퇴', '출석률']);
   const lines = [...ids].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).map((id) => {
-    let o = 0, x = 0, ex = 0, e = 0;
+    let o = 0, x = 0, ex = 0, e = 0, lt = 0;
     const cells = recs.map((r) => {
       const st = statusOf(r, id);
-      if (st === 'came') { o += 1; return 'O'; }
-      if (st === 'early') { e += 1; o += 1; return '조퇴'; }
+      const late = r.students[id] && r.students[id].late;
+      if (late) lt += 1;
+      if (st === 'came') { o += 1; return late ? '지각' : 'O'; }
+      if (st === 'early') { e += 1; o += 1; return late ? '지각, 조퇴' : '조퇴'; }
       if (st === 'excused') { ex += 1; return r.excused[id]; }
       if (st === 'absent') { x += 1; return 'X'; }
       return '';
     });
     const base = o + x;
-    return [id, names.get(id) || ''].concat(cells, [o, x, ex, e, base ? Math.round(o / base * 100) + '%' : '']).map(csvCell).join(',');
+    return [id, names.get(id) || ''].concat(cells, [o, x, ex, lt, e, base ? Math.round(o / base * 100) + '%' : '']).map(csvCell).join(',');
   });
   return { days: recs.length, text: head.map(csvCell).join(',') + '\n' + lines.join('\n') };
 }
@@ -307,10 +310,10 @@ function dayCsv(rec) {
   const rows = [...ids].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).map((id) => {
     const s = rec.students[id];
     const st = statusOf(rec, id);
-    const status = st === 'came' ? '출석' : st === 'early' ? '조퇴' : st === 'excused' ? '사유 결석(' + rec.excused[id] + ')' : '결석';
+    const status = st === 'came' ? (s.late ? '지각' : '출석') : st === 'early' ? (s.late ? '지각, 조퇴' : '조퇴') : st === 'excused' ? '사유 결석(' + rec.excused[id] + ')' : '결석';
     return [id, (s && s.name) || names[id] || '', night.has(id) ? '신청' : '안 함', status, s ? s.seat : '', s ? hm(s.in) : '', s ? hm(s.left) : '', s ? s.outs : ''].map(csvCell).join(',');
   });
-  const log = rec.log.slice().reverse().map((l) => [hm(l.at), typeName[l.type] || l.type, l.id, l.name, l.seat, l.note === 'early' ? '조퇴' : l.note === 'auto' ? '끝나서 자동 반납' : l.type === 'excuse' ? l.note : '', l.by === 'teacher' ? '감독' : '키오스크'].map(csvCell).join(','));
+  const log = rec.log.slice().reverse().map((l) => [hm(l.at), typeName[l.type] || l.type, l.id, l.name, l.seat, l.note === 'early' ? '조퇴' : l.note === 'late' ? '지각' : l.note === 'auto' ? '끝나서 자동 반납' : l.type === 'excuse' ? l.note : '', ({ teacher: '감독', auto: '자동', student: '학생' }[l.by] || '키오스크')].map(csvCell).join(','));
   return '학번,이름,야자 신청,출석,자리,들어온 시각,나간 시각,외출 횟수\n' + rows.join('\n')
     + '\n\n시각,구분,학번,이름,자리,메모,처리\n' + log.join('\n');
 }

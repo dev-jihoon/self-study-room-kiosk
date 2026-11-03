@@ -11,7 +11,8 @@
   const LOG_MAX = 2000;
   const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
   const DAY_NAMES = '일월화수목금토';
-  const REASONS = ['병결', '학원', '가정 사정', '학교 행사'];
+  const REASONS = ['학원', '병원 진료', '몸이 안 좋음', '가정 사정', '학교 행사'];
+  const PLAN_DAYS = 30;   // 며칠 뒤까지 미리 알릴 수 있는지
 
   function todayKey(d) {
     d = d || new Date();
@@ -41,6 +42,7 @@
       fixedOnly: true,       // 지정석은 그날 신청한 주인만 앉게 한다
       closedSeats: [],       // 고장 등으로 막아 둔 자리
       notice: '',            // 키오스크 처음 화면에 띄우는 공지
+      lateMin: 10,           // 시작하고 이 시간이 지나 들어오면 지각 (0이면 안 셈)
       autoLockMin: 10,       // 감독 화면을 이 시간 동안 안 만지면 잠근다 (0이면 안 잠금)
       webhookUrl: '',
       publicUrl: ''
@@ -70,6 +72,7 @@
   function upgradeState(state) {
     state.roster = (state.roster || []).map(cleanStudent);
     state.excused = state.excused || {};
+    state.planned = Array.isArray(state.planned) ? state.planned : [];
     return state;
   }
 
@@ -81,6 +84,7 @@
       if (st) state.seats[k].name = st.name; else delete state.seats[k];
     }
     for (const id in state.excused || {}) if (!byId.has(id)) delete state.excused[id];
+    state.planned = (state.planned || []).filter((p) => byId.has(p.id));
     state.log.forEach((l) => { const st = byId.get(l.id); if (st) l.name = st.name; });
   }
 
@@ -104,6 +108,7 @@
       roster: (roster || []).map(cleanStudent),
       seats: {},
       excused: {},
+      planned: [],
       log: [],
       events: [],
       settings: defaultSettings()
@@ -189,6 +194,11 @@
     state.log = [];
     state.events = [];
     delete state.autoReleased;
+    /* 미리 알린 날이 오늘이면 사유 결석으로 옮기고, 지난 날은 지운다 */
+    state.planned = (state.planned || []).filter((p) => {
+      if (p.date === k) { state.excused[p.id] = { reason: p.reason, at: p.at, by: p.by || 'student' }; return false; }
+      return p.date > k;
+    });
     return true;
   }
 
@@ -206,6 +216,27 @@
       state.events.push({ at, type, id: student.id, name: student.name, seat, message: message(student.name, seat, d) });
       if (state.events.length > 200) state.events.splice(0, state.events.length - 200);
     }
+  }
+
+  /* 시작하고 lateMin분이 지나 들어오면 지각 (시연 모드, 쉬는 날에는 안 셈) */
+  function isLate(state, d) {
+    const set = state.settings;
+    const min = Number(set.lateMin || 0);
+    if (!min || set.demoMode || !isNightDay(state, d) || !isNightTime(state, d)) return false;
+    const [h, m] = set.nightStart.split(':').map(Number);
+    const now = d.getHours() * 60 + d.getMinutes();
+    let start = h * 60 + m;
+    if (now < start) start -= 24 * 60;
+    return now - start >= min;
+  }
+  /* 야자 시간 중에 키오스크에서 반납하면 일찍 나간 것 */
+  function leftEarly(state, d) {
+    return !state.settings.demoMode && isNightDay(state, d) && isNightTime(state, d);
+  }
+  function addDays(key, n) {
+    const d = dateOf(key);
+    d.setDate(d.getDate() + n);
+    return todayKey(d);
   }
 
   /* 끝나는 시각이 지나면 남은 자리를 모두 반납한다 (하루 한 번). 반납한 자리 수를 돌려준다 */
@@ -302,10 +333,12 @@
         if (prev === seat) return { ok: true, seat, student: st, unchanged: true };
         /* 자리를 옮겨도 처음 들어온 시각은 그대로 둔다 */
         const first = prev !== null ? state.seats[prev].at : d.toISOString();
+        const late = prev !== null ? !!state.seats[prev].late : isLate(state, d);
         if (prev !== null) delete state.seats[prev];
         state.seats[seat] = { id: st.id, name: st.name, at: first };
+        if (late) state.seats[seat].late = true;
         delete state.excused[st.id];
-        pushLog(state, prev !== null ? 'move' : 'assign', st, seat, d, by, prev);
+        pushLog(state, prev !== null ? 'move' : 'assign', st, seat, d, by, prev, prev === null && late ? 'late' : '');
         return { ok: true, seat, student: st, moved: prev !== null, from: prev };
       }
       case 'release': {
@@ -314,9 +347,48 @@
         const prev = seatOf(state, st.id);
         if (prev === null) return { ok: false, error: '배정된 자리가 없어요' };
         delete state.seats[prev];
-        const early = action.byTeacher && action.reason === 'early';
+        const early = action.byTeacher ? action.reason === 'early' : leftEarly(state, d);
         pushLog(state, 'release', st, prev, d, by, undefined, early ? 'early' : '');
         return { ok: true, seat: prev, student: st, early };
+      }
+      /*
+       못 온다고 알리기 (학생도 할 수 있다). date가 오늘이면 바로 사유 결석, 뒤의 날이면 미리 적어 둔다.
+       name을 같이 보내면 명단의 이름과 맞는지 본다 (휴대폰에서 남의 학번으로 장난치지 않게)
+      */
+      case 'absence-report':
+      case 'absence-cancel': {
+        const st = findStudent(state, action.id);
+        if (!st) return { ok: false, error: '등록되지 않은 학번이에요' };
+        if (action.name !== undefined && String(action.name).trim().toLowerCase() !== st.name.toLowerCase()) return { ok: false, error: '학번과 이름이 맞지 않아요' };
+        const date = action.date || state.day;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < state.day || date > addDays(state.day, PLAN_DAYS)) return { ok: false, error: '오늘부터 ' + PLAN_DAYS + '일 안의 날짜를 골라 주세요' };
+        const who = action.byTeacher ? 'teacher' : 'student';
+        if (action.type === 'absence-cancel') {
+          if (date === state.day) {
+            if (!state.excused[st.id]) return { ok: false, error: '알린 내용이 없어요' };
+            delete state.excused[st.id];
+            state.log = state.log.filter((l) => !(l.type === 'excuse' && l.id === st.id));
+          } else {
+            const before = state.planned.length;
+            state.planned = state.planned.filter((p) => !(p.id === st.id && p.date === date));
+            if (before === state.planned.length) return { ok: false, error: '알린 내용이 없어요' };
+          }
+          return { ok: true, student: st, date };
+        }
+        const reason = String(action.reason || '').trim().slice(0, 40);
+        if (!reason) return { ok: false, error: '이유를 골라 주세요' };
+        if (!applied(st, dateOf(date)) && !action.byTeacher) return { ok: false, error: '그날은 야자를 신청하지 않았어요' };
+        if (date === state.day) {
+          if (seatOf(state, st.id) !== null) return { ok: false, error: '이미 자리에 앉아 있어요' };
+          state.excused[st.id] = { reason, at: d.toISOString(), by: who };
+          state.log = state.log.filter((l) => !(l.type === 'excuse' && l.id === st.id));
+          pushLog(state, 'excuse', st, null, d, who, undefined, reason);
+        } else {
+          state.planned = state.planned.filter((p) => !(p.id === st.id && p.date === date));
+          state.planned.push({ id: st.id, name: st.name, date, reason, at: d.toISOString(), by: who });
+          state.planned.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.id.localeCompare(b.id)));
+        }
+        return { ok: true, student: st, date, reason };
       }
       /* 외출: 자리는 그대로 두고 잠깐 나갔다고 표시한다 */
       case 'out':
@@ -343,7 +415,8 @@
         if (seatOf(state, st.id) !== null) return { ok: false, error: '이미 자리에 앉아 있어요' };
         const reason = String(action.reason || '').trim().slice(0, 40);
         if (!reason) return { ok: false, error: '사유를 골라 주세요' };
-        state.excused[st.id] = { reason, at: d.toISOString() };
+        state.excused[st.id] = { reason, at: d.toISOString(), by: 'teacher' };
+        state.log = state.log.filter((l) => !(l.type === 'excuse' && l.id === st.id));
         pushLog(state, 'excuse', st, null, d, 'teacher', undefined, reason);
         return { ok: true, student: st, reason };
       }
@@ -383,7 +456,8 @@
       }
       case 'reset': {
         state.seats = {};
-        state.excused = {};
+        /* 학생이 미리 알린 결석은 남긴다 */
+        Object.keys(state.excused).forEach((id) => { if (state.excused[id].by !== 'student') delete state.excused[id]; });
         state.log = [];
         state.events = [];
         delete state.autoReleased;
@@ -397,6 +471,7 @@
         if ('autoLockMin' in s && !(s.autoLockMin >= 0 && s.autoLockMin <= 240)) return { ok: false, error: '자동 잠금 시간을 확인해 주세요' };
         if ('offDates' in s && (!Array.isArray(s.offDates) || s.offDates.some((o) => !o || !/^\d{4}-\d{2}-\d{2}$/.test(o.date)))) return { ok: false, error: '쉬는 날을 확인해 주세요' };
         if ('notice' in s && String(s.notice).length > 80) return { ok: false, error: '공지는 80자까지 쓸 수 있어요' };
+        if ('lateMin' in s && !(s.lateMin >= 0 && s.lateMin <= 180)) return { ok: false, error: '지각 기준을 확인해 주세요' };
         /* PIN과 막힌 자리는 여기서 바꾸지 않는다 (change-pin, seat-close로만) */
         for (const k of Object.keys(defaultSettings())) {
           if (k === 'pin' || k === 'closedSeats') continue;
@@ -515,7 +590,8 @@
     const students = {};
     state.log.slice().reverse().forEach((l) => {
       if (l.type === 'excuse') return;
-      const r = students[l.id] || (students[l.id] = { name: l.name, in: l.at, seat: l.seat, left: null, early: false, outs: 0 });
+      const r = students[l.id] || (students[l.id] = { name: l.name, in: l.at, seat: l.seat, left: null, early: false, late: false, outs: 0 });
+      if (l.note === 'late') r.late = true;
       r.name = l.name;
       if (l.type === 'assign' || l.type === 'move') { r.seat = l.seat; r.left = null; r.early = false; }
       if (l.type === 'release') { r.left = l.at; r.early = l.note === 'early'; }
@@ -523,7 +599,7 @@
     });
     const night = appliedToday(state).map((s) => s.id);
     const excused = {};
-    Object.keys(state.excused || {}).forEach((id) => { if (!students[id]) excused[id] = state.excused[id].reason; });
+    Object.keys(state.excused || {}).forEach((id) => { if (!students[id]) excused[id] = state.excused[id].reason + (state.excused[id].by === 'student' ? ' (학생이 알림)' : ''); });
     return {
       day: state.day,
       night,
@@ -675,7 +751,7 @@
   }
 
   return {
-    ADMIN_TYPES, ALL_DAYS, DAY_NAMES, REASONS, todayKey, dateOf, hhmm, defaultSettings, emptyState, upgradeState, rosterTag, syncDefaultRoster,
+    ADMIN_TYPES, ALL_DAYS, DAY_NAMES, REASONS, PLAN_DAYS, addDays, isLate, todayKey, dateOf, hhmm, defaultSettings, emptyState, upgradeState, rosterTag, syncDefaultRoster,
     allSeatNumbers, findStudent, seatOf, isClosed, applied, appliedToday, offDate, isNightDay, isNightTime, kioskOpen, reservedBy, reservations,
     rollDay, autoRelease, apply, checkStudent, checkRoster, checkFixedSeats, cleanStudent, dayRecord, parseCsv, parseDays, rosterFromTable,
     parseRosterCsv, daysText, message

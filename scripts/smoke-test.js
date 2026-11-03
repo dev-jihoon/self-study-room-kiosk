@@ -98,6 +98,22 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     assert.ok(r.result.ok, '주인은 앉을 수 있음');
     r = await post('/api/action', { type: 'release', id: '39997' });
 
+    /* 못 온다고 알리기 (학생) */
+    const tomorrow = await (async () => { const d = new Date(); d.setDate(d.getDate() + 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })();
+    r = await post('/api/action', { type: 'student-save', isNew: true, student: { id: '39995', name: 'Away', days: [0, 1, 2, 3, 4, 5, 6] }, token });
+    r = await post('/api/action', { type: 'absence-report', id: '39995', name: 'wrong', reason: '학원' });
+    assert.ok(!r.result.ok, '이름이 틀리면 못 알림');
+    r = await post('/api/action', { type: 'absence-report', id: '39995', name: 'away', reason: '학원' });
+    assert.ok(r.result.ok && r.state.excused['39995'].by === 'student', '오늘 못 온다고 알리기');
+    r = await post('/api/action', { type: 'absence-report', id: '39995', name: 'Away', date: tomorrow, reason: '병원 진료' });
+    assert.ok(r.result.ok && r.state.planned.some((p) => p.id === '39995' && p.date === tomorrow), '내일 못 온다고 미리 알리기');
+    r = await post('/api/action', { type: 'absence-cancel', id: '39995', name: 'Away', date: tomorrow });
+    assert.ok(r.result.ok && !r.state.planned.length, '미리 알린 것 취소');
+    r = await post('/api/action', { type: 'assign', id: '39995', seat: S1 });
+    assert.ok(r.result.ok && !r.state.excused['39995'], '알린 학생이 와서 앉으면 결석이 풀림');
+    r = await post('/api/action', { type: 'release', id: '39995' });
+    r = await post('/api/action', { type: 'student-delete', ids: ['39995'], token });
+
     /* 사유 결석 */
     r = await post('/api/action', { type: 'excuse', id: '39997', reason: '병결' });
     assert.ok(!r.result.ok, '사유 결석은 감독만');
